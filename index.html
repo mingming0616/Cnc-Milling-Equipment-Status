@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>設備即時狀態與停機履歷看板</title>
+    <title>設備即時狀態與停機履歷看板 - 深色版</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- SheetJS CDN (用於 Excel 匯出) -->
@@ -12,8 +12,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         .tab-btn.active {
-            border-bottom: 3px solid #2563eb;
-            color: #2563eb;
+            border-bottom: 3px solid #3b82f6;
+            color: #60a5fa;
             font-weight: 600;
         }
         .status-card {
@@ -21,53 +21,68 @@
         }
         .status-card:hover {
             transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+        }
+        /* 客製深色滾動條 */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569;
         }
     </style>
 </head>
-<body class="bg-slate-100 text-slate-800 font-sans min-h-screen flex flex-col">
+<body class="bg-slate-950 text-slate-100 font-sans min-h-screen flex flex-col selection:bg-blue-600 selection:text-white">
 
     <!-- 頂部標頭與 KPI 統計 -->
-    <header class="bg-slate-900 text-white shadow-md sticky top-0 z-50">
+    <header class="bg-slate-900 border-b border-slate-800 shadow-lg sticky top-0 z-50">
         <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap justify-between items-center gap-4">
             <div class="flex items-center space-x-3">
-                <i class="fa-solid font-bold text-blue-400 text-2xl fa-industry"></i>
-                <h1 class="text-xl font-bold tracking-wide">廠區設備即時狀態監控看板</h1>
+                <i class="fa-solid font-bold text-blue-500 text-2xl fa-industry"></i>
+                <h1 class="text-xl font-bold tracking-wide text-white">廠區設備即時狀態監控看板</h1>
             </div>
             
             <!-- KPI 數據 -->
             <div class="flex items-center space-x-3 text-sm">
-                <div class="bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700 flex items-center space-x-2">
-                    <span class="w-3 h-3 rounded-full bg-emerald-500 inline-block"></span>
-                    <span class="text-slate-300">運作中:</span>
+                <div class="bg-slate-950 px-3 py-1.5 rounded-lg border border-slate-800 flex items-center space-x-2">
+                    <span class="w-3 h-3 rounded-full bg-emerald-500 inline-block shadow-[0_0_8px_rgba(16,185,129,0.5)]"></span>
+                    <span class="text-slate-400">運作中:</span>
                     <span id="kpi-running" class="font-bold text-emerald-400 text-base">0</span>
                 </div>
-                <div class="bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700 flex items-center space-x-2">
-                    <span class="w-3 h-3 rounded-full bg-rose-500 inline-block animate-pulse"></span>
-                    <span class="text-slate-300">故障停機:</span>
+                <div class="bg-slate-950 px-3 py-1.5 rounded-lg border border-slate-800 flex items-center space-x-2">
+                    <span class="w-3 h-3 rounded-full bg-rose-500 inline-block animate-pulse shadow-[0_0_8px_rgba(244,63,94,0.6)]"></span>
+                    <span class="text-slate-400">故障停機:</span>
                     <span id="kpi-down" class="font-bold text-rose-400 text-base">0</span>
                 </div>
-                <div class="bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700 flex items-center space-x-2">
-                    <span class="w-3 h-3 rounded-full bg-amber-500 inline-block"></span>
-                    <span class="text-slate-300">保養巡檢:</span>
+                <div class="bg-slate-950 px-3 py-1.5 rounded-lg border border-slate-800 flex items-center space-x-2">
+                    <span class="w-3 h-3 rounded-full bg-amber-500 inline-block shadow-[0_0_8px_rgba(245,158,11,0.5)]"></span>
+                    <span class="text-slate-400">保養巡檢:</span>
                     <span id="kpi-maint" class="font-bold text-amber-400 text-base">0</span>
                 </div>
             </div>
         </div>
 
         <!-- 頁籤選單 -->
-        <div class="bg-slate-800 border-t border-slate-700">
+        <div class="bg-slate-900/80 backdrop-blur border-t border-slate-800/80">
             <div class="max-w-7xl mx-auto px-4 flex space-x-8">
-                <button onclick="switchTab('all')" id="tab-all" class="tab-btn active py-3 text-slate-300 hover:text-white flex items-center space-x-2">
+                <button onclick="switchTab('all')" id="tab-all" class="tab-btn active py-3 text-slate-400 hover:text-white flex items-center space-x-2 transition">
                     <i class="fa-solid fa-border-all"></i>
                     <span>全廠設備看板</span>
                 </button>
-                <button onclick="switchTab('fault')" id="tab-fault" class="tab-btn py-3 text-slate-300 hover:text-white flex items-center space-x-2">
+                <button onclick="switchTab('fault')" id="tab-fault" class="tab-btn py-3 text-slate-400 hover:text-white flex items-center space-x-2 transition">
                     <i class="fa-solid fa-triangle-exclamation text-rose-400"></i>
                     <span>故障設備清單</span>
                     <span id="fault-badge" class="bg-rose-500 text-white text-xs px-2 py-0.5 rounded-full hidden">0</span>
                 </button>
-                <button onclick="switchTab('history')" id="tab-history" class="tab-btn py-3 text-slate-300 hover:text-white flex items-center space-x-2">
+                <button onclick="switchTab('history')" id="tab-history" class="tab-btn py-3 text-slate-400 hover:text-white flex items-center space-x-2 transition">
                     <i class="fa-solid fa-file-excel text-emerald-400"></i>
                     <span>巡檢與履歷報表 (30天)</span>
                 </button>
@@ -80,15 +95,15 @@
 
         <!-- 頁籤一：全廠設備看板 -->
         <section id="view-all" class="space-y-4">
-            <div class="flex justify-between items-center bg-white p-3 rounded-lg shadow-sm border border-slate-200">
+            <div class="flex justify-between items-center bg-slate-900 p-3 rounded-lg border border-slate-800 shadow-md">
                 <div class="flex items-center space-x-2">
-                    <i class="fa-solid fa-filter text-slate-400"></i>
-                    <span class="text-sm font-semibold text-slate-600">區域篩選：</span>
-                    <select id="area-filter" onchange="renderAllDevices()" class="border border-slate-300 rounded px-2 py-1 text-sm bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <i class="fa-solid fa-filter text-slate-500"></i>
+                    <span class="text-sm font-semibold text-slate-300">區域篩選：</span>
+                    <select id="area-filter" onchange="renderAllDevices()" class="border border-slate-700 rounded px-3 py-1.5 text-sm bg-slate-950 text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500">
                         <option value="ALL">全部區域</option>
                     </select>
                 </div>
-                <button onclick="openAddDeviceModal()" class="bg-blue-600 hover:bg-blue-700 text-white text-sm px-3 py-1.5 rounded-md flex items-center space-x-1 shadow-sm">
+                <button onclick="openAddDeviceModal()" class="bg-blue-600 hover:bg-blue-500 text-white text-sm px-3.5 py-1.5 rounded-md flex items-center space-x-1.5 shadow-md transition">
                     <i class="fa-solid fa-plus"></i>
                     <span>新增設備</span>
                 </button>
@@ -102,12 +117,12 @@
 
         <!-- 頁籤二：故障設備清單 -->
         <section id="view-fault" class="hidden space-y-4">
-            <div class="bg-rose-50 border-l-4 border-rose-500 p-4 rounded-r-lg flex justify-between items-center">
+            <div class="bg-rose-950/40 border-l-4 border-rose-500 p-4 rounded-r-lg border-y border-r border-rose-900/50 flex justify-between items-center">
                 <div class="flex items-center space-x-3">
                     <i class="fa-solid fa-circle-exclamation text-rose-500 text-xl"></i>
                     <div>
-                        <h3 class="font-bold text-rose-800">當前異常停機設備專區</h3>
-                        <p class="text-xs text-rose-600">實時監控故障機台，修復完工後點擊【修復完成】即可恢復運作狀態。</p>
+                        <h3 class="font-bold text-rose-200">當前異常停機設備專區</h3>
+                        <p class="text-xs text-rose-400/80">實時監控故障機台，修復完工後點擊【修復完成】即可恢復運作狀態。</p>
                     </div>
                 </div>
             </div>
@@ -118,33 +133,33 @@
 
         <!-- 頁籤三：巡檢與履歷報表 -->
         <section id="view-history" class="hidden space-y-4">
-            <div class="bg-white p-4 rounded-lg shadow-sm border border-slate-200 flex flex-wrap justify-between items-center gap-4">
+            <div class="bg-slate-900 p-4 rounded-lg border border-slate-800 shadow-md flex flex-wrap justify-between items-center gap-4">
                 <div class="flex flex-wrap items-center gap-3">
                     <div>
-                        <label class="block text-xs text-slate-500 mb-1">開始日期</label>
-                        <input type="date" id="report-start" class="border border-slate-300 rounded px-2 py-1 text-sm">
+                        <label class="block text-xs text-slate-400 mb-1">開始日期</label>
+                        <input type="date" id="report-start" class="border border-slate-700 bg-slate-950 text-slate-200 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500">
                     </div>
                     <div>
-                        <label class="block text-xs text-slate-500 mb-1">結束日期</label>
-                        <input type="date" id="report-end" class="border border-slate-300 rounded px-2 py-1 text-sm">
+                        <label class="block text-xs text-slate-400 mb-1">結束日期</label>
+                        <input type="date" id="report-end" class="border border-slate-700 bg-slate-950 text-slate-200 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500">
                     </div>
                     <div class="self-end">
-                        <button onclick="filterHistory()" class="bg-slate-700 hover:bg-slate-800 text-white text-sm px-3 py-1.5 rounded">
+                        <button onclick="filterHistory()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-sm px-3.5 py-1.5 rounded transition">
                             <i class="fa-solid fa-magnifying-glass mr-1"></i>查詢
                         </button>
                     </div>
                 </div>
-                <button onclick="exportToExcel()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-sm px-4 py-2 rounded-lg font-medium shadow flex items-center space-x-2">
+                <button onclick="exportToExcel()" class="bg-emerald-600 hover:bg-emerald-500 text-white text-sm px-4 py-2 rounded-lg font-medium shadow-md flex items-center space-x-2 transition">
                     <i class="fa-solid fa-file-excel text-base"></i>
                     <span>匯出 Excel 報表</span>
                 </button>
             </div>
 
             <!-- 報表表格 -->
-            <div class="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
+            <div class="bg-slate-900 rounded-lg border border-slate-800 shadow-md overflow-hidden">
                 <div class="overflow-x-auto">
-                    <table class="w-full text-left text-sm text-slate-600">
-                        <thead class="bg-slate-50 text-slate-700 uppercase text-xs border-b border-slate-200">
+                    <table class="w-full text-left text-sm text-slate-300">
+                        <thead class="bg-slate-950 text-slate-400 uppercase text-xs border-b border-slate-800">
                             <tr>
                                 <th class="px-4 py-3">機台編號</th>
                                 <th class="px-4 py-3">事件類型</th>
@@ -154,7 +169,7 @@
                                 <th class="px-4 py-3">紀錄人員 / 原因備註</th>
                             </tr>
                         </thead>
-                        <tbody id="history-table-body" class="divide-y divide-slate-100">
+                        <tbody id="history-table-body" class="divide-y divide-slate-800/60">
                             <!-- 歷史紀錄渲染區域 -->
                         </tbody>
                     </table>
@@ -165,11 +180,11 @@
     </main>
 
     <!-- 彈出視窗：故障報修 / 巡檢登記 -->
-    <div id="action-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center hidden z-50">
-        <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6 space-y-4">
-            <div class="flex justify-between items-center border-b pb-3">
-                <h3 id="modal-title" class="text-lg font-bold text-slate-800">設備操作登記</h3>
-                <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-xl"></i></button>
+    <div id="action-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center hidden z-50">
+        <div class="bg-slate-900 border border-slate-800 rounded-xl shadow-2xl w-full max-w-md p-6 space-y-4">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+                <h3 id="modal-title" class="text-lg font-bold text-white">設備操作登記</h3>
+                <button onclick="closeModal()" class="text-slate-500 hover:text-slate-300 transition"><i class="fa-solid fa-xmark text-xl"></i></button>
             </div>
             
             <form id="modal-form" onsubmit="handleModalSubmit(event)" class="space-y-3">
@@ -177,48 +192,48 @@
                 <input type="hidden" id="modal-action-type">
 
                 <div>
-                    <label class="block text-xs font-semibold text-slate-600 mb-1">機台編號</label>
-                    <input type="text" id="modal-device-code" readonly class="w-full bg-slate-100 border border-slate-300 rounded px-3 py-2 text-sm text-slate-600">
+                    <label class="block text-xs font-semibold text-slate-400 mb-1">機台編號</label>
+                    <input type="text" id="modal-device-code" readonly class="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-sm text-slate-300 focus:outline-none">
                 </div>
 
                 <div id="modal-reason-group">
-                    <label class="block text-xs font-semibold text-slate-600 mb-1">故障原因 / 備註說明</label>
-                    <textarea id="modal-reason" rows="3" class="w-full border border-slate-300 rounded p-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="請輸入故障原因或保養項目..."></textarea>
+                    <label class="block text-xs font-semibold text-slate-400 mb-1">故障原因 / 備註說明</label>
+                    <textarea id="modal-reason" rows="3" class="w-full bg-slate-950 border border-slate-800 text-slate-200 rounded p-2.5 text-sm focus:ring-1 focus:ring-blue-500 focus:outline-none" placeholder="請輸入故障原因或保養項目..."></textarea>
                 </div>
 
                 <div>
-                    <label class="block text-xs font-semibold text-slate-600 mb-1">操作人員</label>
-                    <input type="text" id="modal-operator" required class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="請輸入姓名">
+                    <label class="block text-xs font-semibold text-slate-400 mb-1">操作人員</label>
+                    <input type="text" id="modal-operator" required class="w-full bg-slate-950 border border-slate-800 text-slate-200 rounded px-3 py-2 text-sm focus:ring-1 focus:ring-blue-500 focus:outline-none" placeholder="請輸入姓名">
                 </div>
 
-                <div class="flex justify-end space-x-2 pt-2 border-t">
-                    <button type="button" onclick="closeModal()" class="px-4 py-2 border rounded-md text-sm text-slate-600 hover:bg-slate-50">取消</button>
-                    <button type="submit" id="modal-submit-btn" class="px-4 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700">確認送出</button>
+                <div class="flex justify-end space-x-2 pt-3 border-t border-slate-800">
+                    <button type="button" onclick="closeModal()" class="px-4 py-2 border border-slate-700 bg-slate-800 rounded-md text-sm text-slate-300 hover:bg-slate-700 transition">取消</button>
+                    <button type="submit" id="modal-submit-btn" class="px-4 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-500 transition">確認送出</button>
                 </div>
             </form>
         </div>
     </div>
 
     <!-- 彈出視窗：新增設備 -->
-    <div id="add-device-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center hidden z-50">
-        <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6 space-y-4">
-            <div class="flex justify-between items-center border-b pb-3">
-                <h3 class="text-lg font-bold text-slate-800">新增設備</h3>
-                <button onclick="closeAddDeviceModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-xl"></i></button>
+    <div id="add-device-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center hidden z-50">
+        <div class="bg-slate-900 border border-slate-800 rounded-xl shadow-2xl w-full max-w-md p-6 space-y-4">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+                <h3 class="text-lg font-bold text-white">新增設備</h3>
+                <button onclick="closeAddDeviceModal()" class="text-slate-500 hover:text-slate-300 transition"><i class="fa-solid fa-xmark text-xl"></i></button>
             </div>
             
             <form onsubmit="handleAddDeviceSubmit(event)" class="space-y-3">
                 <div>
-                    <label class="block text-xs font-semibold text-slate-600 mb-1">機台編號 (例如: Brother M300)</label>
-                    <input type="text" id="new-device-code" required class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                    <label class="block text-xs font-semibold text-slate-400 mb-1">機台編號 (例如: Brother M300)</label>
+                    <input type="text" id="new-device-code" required class="w-full bg-slate-950 border border-slate-800 text-slate-200 rounded px-3 py-2 text-sm focus:ring-1 focus:ring-blue-500 focus:outline-none">
                 </div>
                 <div>
-                    <label class="block text-xs font-semibold text-slate-600 mb-1">所屬區域</label>
-                    <input type="text" id="new-device-area" placeholder="例如: 口腔罩模組 / A區" required class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                    <label class="block text-xs font-semibold text-slate-400 mb-1">所屬區域</label>
+                    <input type="text" id="new-device-area" placeholder="例如: 口腔罩模組 / A區" required class="w-full bg-slate-950 border border-slate-800 text-slate-200 rounded px-3 py-2 text-sm focus:ring-1 focus:ring-blue-500 focus:outline-none">
                 </div>
-                <div class="flex justify-end space-x-2 pt-2 border-t">
-                    <button type="button" onclick="closeAddDeviceModal()" class="px-4 py-2 border rounded-md text-sm text-slate-600 hover:bg-slate-50">取消</button>
-                    <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700">新增</button>
+                <div class="flex justify-end space-x-2 pt-3 border-t border-slate-800">
+                    <button type="button" onclick="closeAddDeviceModal()" class="px-4 py-2 border border-slate-700 bg-slate-800 rounded-md text-sm text-slate-300 hover:bg-slate-700 transition">取消</button>
+                    <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-500 transition">新增</button>
                 </div>
             </form>
         </div>
@@ -336,43 +351,43 @@
             grid.innerHTML = '';
 
             devices.filter(d => selectedArea === 'ALL' || d.area === selectedArea).forEach(d => {
-                let statusColor = 'border-emerald-500 bg-white';
-                let badge = '<span class="bg-emerald-100 text-emerald-700 text-xs px-2 py-0.5 rounded font-medium">運作中</span>';
+                let statusColor = 'border-emerald-500 bg-slate-900';
+                let badge = '<span class="bg-emerald-950/80 border border-emerald-800 text-emerald-400 text-xs px-2 py-0.5 rounded font-medium">運作中</span>';
                 
                 if (d.status === 'FAULT') {
-                    statusColor = 'border-rose-500 bg-rose-50/30';
-                    badge = '<span class="bg-rose-100 text-rose-700 text-xs px-2 py-0.5 rounded font-medium flex items-center gap-1"><i class="fa-solid fa-circle text-[8px] animate-ping"></i>故障停機</span>';
+                    statusColor = 'border-rose-500 bg-rose-950/20';
+                    badge = '<span class="bg-rose-950/80 border border-rose-800 text-rose-400 text-xs px-2 py-0.5 rounded font-medium flex items-center gap-1.5"><i class="fa-solid fa-circle text-[8px] animate-ping text-rose-500"></i>故障停機</span>';
                 } else if (d.status === 'MAINT') {
-                    statusColor = 'border-amber-500 bg-amber-50/30';
-                    badge = '<span class="bg-amber-100 text-amber-700 text-xs px-2 py-0.5 rounded font-medium">保養巡檢</span>';
+                    statusColor = 'border-amber-500 bg-amber-950/20';
+                    badge = '<span class="bg-amber-950/80 border border-amber-800 text-amber-400 text-xs px-2 py-0.5 rounded font-medium">保養巡檢</span>';
                 }
 
                 const card = document.createElement('div');
-                card.className = `status-card bg-white border-t-4 ${statusColor} rounded-lg p-4 shadow-sm flex flex-col justify-between space-y-3`;
+                card.className = `status-card border-t-4 ${statusColor} border-x border-b border-slate-800/80 rounded-lg p-4 shadow-md flex flex-col justify-between space-y-3`;
                 card.innerHTML = `
                     <div>
                         <div class="flex justify-between items-start mb-1">
-                            <h4 class="font-bold text-slate-800 text-base">${d.code}</h4>
+                            <h4 class="font-bold text-slate-100 text-base">${d.code}</h4>
                             ${badge}
                         </div>
-                        <p class="text-xs text-slate-400 mb-2"><i class="fa-solid fa-location-dot mr-1"></i>${d.area}</p>
+                        <p class="text-xs text-slate-500 mb-2"><i class="fa-solid fa-location-dot mr-1 text-slate-600"></i>${d.area}</p>
                         
                         ${d.status === 'FAULT' ? `
-                            <div class="bg-rose-100/60 rounded p-2 text-center my-2 border border-rose-200">
-                                <span class="text-xs text-rose-600 block">已停機時間</span>
-                                <span class="timer-display font-mono font-bold text-rose-700 text-sm" data-starttime="${d.startTime}">計算中...</span>
+                            <div class="bg-rose-950/50 rounded p-2 text-center my-2 border border-rose-900/60">
+                                <span class="text-xs text-rose-400 block mb-0.5">已停機時間</span>
+                                <span class="timer-display font-mono font-bold text-rose-400 text-sm tracking-wide" data-starttime="${d.startTime}">計算中...</span>
                             </div>
                         ` : ''}
 
-                        ${d.reason ? `<p class="text-xs text-slate-500 bg-slate-50 p-1.5 rounded border border-slate-100 truncate"><i class="fa-solid fa-info-circle mr-1"></i>${d.reason}</p>` : ''}
+                        ${d.reason ? `<p class="text-xs text-slate-400 bg-slate-950/60 p-2 rounded border border-slate-800/60 truncate"><i class="fa-solid fa-info-circle mr-1 text-slate-500"></i>${d.reason}</p>` : ''}
                     </div>
 
-                    <div class="pt-2 border-t border-slate-100 flex space-x-2 text-xs">
+                    <div class="pt-2.5 border-t border-slate-800/80 flex space-x-2 text-xs">
                         ${d.status === 'FAULT' ? `
-                            <button onclick="openModal('${d.id}', 'REPAIR')" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-1.5 rounded font-medium shadow-sm">修復完成</button>
+                            <button onclick="openModal('${d.id}', 'REPAIR')" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white py-1.5 rounded font-medium shadow transition">修復完成</button>
                         ` : `
-                            <button onclick="openModal('${d.id}', 'FAULT')" class="flex-1 bg-rose-600 hover:bg-rose-700 text-white py-1.5 rounded font-medium shadow-sm">報修</button>
-                            <button onclick="openModal('${d.id}', 'MAINT')" class="flex-1 bg-amber-500 hover:bg-amber-600 text-white py-1.5 rounded font-medium shadow-sm">巡檢</button>
+                            <button onclick="openModal('${d.id}', 'FAULT')" class="flex-1 bg-rose-600 hover:bg-rose-500 text-white py-1.5 rounded font-medium shadow transition">報修</button>
+                            <button onclick="openModal('${d.id}', 'MAINT')" class="flex-1 bg-amber-600 hover:bg-amber-500 text-white py-1.5 rounded font-medium shadow transition">巡檢</button>
                         `}
                     </div>
                 `;
@@ -387,28 +402,28 @@
             const faultList = devices.filter(d => d.status === 'FAULT');
 
             if (faultList.length === 0) {
-                grid.innerHTML = '<div class="col-span-full text-center py-12 text-slate-400"><i class="fa-solid fa-circle-check text-4xl text-emerald-400 mb-2 block"></i>目前全廠設備運作良好，無故障停機機台。</div>';
+                grid.innerHTML = '<div class="col-span-full text-center py-16 text-slate-500"><i class="fa-solid fa-circle-check text-5xl text-emerald-500/80 mb-3 block"></i>目前全廠設備運作良好，無故障停機機台。</div>';
                 return;
             }
 
             faultList.forEach(d => {
                 const card = document.createElement('div');
-                card.className = 'bg-white border-2 border-rose-500 rounded-xl p-5 shadow-md flex flex-col justify-between space-y-4';
+                card.className = 'bg-slate-900 border-2 border-rose-600/80 rounded-xl p-5 shadow-lg flex flex-col justify-between space-y-4';
                 card.innerHTML = `
-                    <div class="space-y-2">
+                    <div class="space-y-3">
                         <div class="flex justify-between items-center">
-                            <span class="text-xs font-semibold px-2 py-0.5 bg-rose-100 text-rose-700 rounded">${d.area}</span>
-                            <span class="text-xs text-slate-400">報修時間：${new Date(d.startTime).toLocaleString()}</span>
+                            <span class="text-xs font-semibold px-2 py-0.5 bg-rose-950 text-rose-300 border border-rose-800/80 rounded">${d.area}</span>
+                            <span class="text-xs text-slate-500">報修時間：${new Date(d.startTime).toLocaleString()}</span>
                         </div>
-                        <h3 class="text-xl font-bold text-slate-800">${d.code}</h3>
-                        <div class="bg-rose-50 p-3 rounded-lg border border-rose-200 text-center">
-                            <span class="text-xs text-rose-500 font-semibold block mb-1">當前累計停機時長</span>
-                            <span class="timer-display font-mono text-xl font-bold text-rose-600" data-starttime="${d.startTime}">計算中...</span>
+                        <h3 class="text-xl font-bold text-slate-100">${d.code}</h3>
+                        <div class="bg-rose-950/40 p-3.5 rounded-lg border border-rose-900/80 text-center">
+                            <span class="text-xs text-rose-400 font-semibold block mb-1">當前累計停機時長</span>
+                            <span class="timer-display font-mono text-xl font-bold text-rose-400 tracking-wider" data-starttime="${d.startTime}">計算中...</span>
                         </div>
-                        <p class="text-sm text-slate-600 bg-slate-50 p-2 rounded"><span class="font-bold text-slate-700">故障原因：</span>${d.reason || '未說明'}</p>
+                        <p class="text-sm text-slate-300 bg-slate-950 p-2.5 rounded border border-slate-800"><span class="font-bold text-slate-400">故障原因：</span>${d.reason || '未說明'}</p>
                     </div>
-                    <button onclick="openModal('${d.id}', 'REPAIR')" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2 rounded-lg shadow transition">
-                        <i class="fa-solid fa-wrench mr-1"></i>修復完成結案
+                    <button onclick="openModal('${d.id}', 'REPAIR')" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-2 rounded-lg shadow-md transition">
+                        <i class="fa-solid fa-wrench mr-1.5"></i>修復完成結案
                     </button>
                 `;
                 grid.appendChild(card);
@@ -440,13 +455,13 @@
 
             if (actionType === 'FAULT') {
                 titleEl.innerText = '故障報修登記';
-                submitBtn.className = 'px-4 py-2 bg-rose-600 text-white rounded-md text-sm hover:bg-rose-700';
+                submitBtn.className = 'px-4 py-2 bg-rose-600 text-white rounded-md text-sm hover:bg-rose-500 transition';
             } else if (actionType === 'MAINT') {
                 titleEl.innerText = '例行巡檢/保養登記';
-                submitBtn.className = 'px-4 py-2 bg-amber-500 text-white rounded-md text-sm hover:bg-amber-600';
+                submitBtn.className = 'px-4 py-2 bg-amber-600 text-white rounded-md text-sm hover:bg-amber-500 transition';
             } else if (actionType === 'REPAIR') {
                 titleEl.innerText = '維修完工確認';
-                submitBtn.className = 'px-4 py-2 bg-emerald-600 text-white rounded-md text-sm hover:bg-emerald-700';
+                submitBtn.className = 'px-4 py-2 bg-emerald-600 text-white rounded-md text-sm hover:bg-emerald-500 transition';
             }
 
             document.getElementById('action-modal').classList.remove('hidden');
@@ -551,16 +566,16 @@
 
             historyLogs.forEach(h => {
                 const tr = document.createElement('tr');
-                tr.className = 'hover:bg-slate-50 border-b border-slate-100';
+                tr.className = 'hover:bg-slate-800/40 border-b border-slate-800/60 transition';
                 tr.innerHTML = `
-                    <td class="px-4 py-3 font-semibold text-slate-700">${h.code}</td>
+                    <td class="px-4 py-3 font-semibold text-slate-200">${h.code}</td>
                     <td class="px-4 py-3">
-                        <span class="px-2 py-0.5 rounded text-xs ${h.type === '故障報修' ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-600'}">${h.type}</span>
+                        <span class="px-2 py-0.5 rounded text-xs ${h.type === '故障報修' ? 'bg-rose-950/80 border border-rose-800 text-rose-400' : 'bg-slate-800 border border-slate-700 text-slate-300'}">${h.type}</span>
                     </td>
-                    <td class="px-4 py-3 text-xs">${new Date(h.startTime).toLocaleString()}</td>
-                    <td class="px-4 py-3 text-xs">${h.endTime !== '-' ? new Date(h.endTime).toLocaleString() : '<span class="text-rose-500 font-bold">未結案</span>'}</td>
-                    <td class="px-4 py-3 text-xs font-mono font-bold">${h.duration}</td>
-                    <td class="px-4 py-3 text-xs">${h.operator}: ${h.reason}</td>
+                    <td class="px-4 py-3 text-xs text-slate-400">${new Date(h.startTime).toLocaleString()}</td>
+                    <td class="px-4 py-3 text-xs text-slate-400">${h.endTime !== '-' ? new Date(h.endTime).toLocaleString() : '<span class="text-rose-400 font-bold">未結案</span>'}</td>
+                    <td class="px-4 py-3 text-xs font-mono font-bold text-slate-200">${h.duration}</td>
+                    <td class="px-4 py-3 text-xs text-slate-300">${h.operator}: ${h.reason}</td>
                 `;
                 tbody.appendChild(tr);
             });
