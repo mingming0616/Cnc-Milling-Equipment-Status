@@ -1,602 +1,871 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>設備即時狀態與停機履歷看板 - 深色版</title>
-    <!-- Tailwind CSS CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- SheetJS CDN (用於 Excel 匯出) -->
-    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-    <!-- FontAwesome 圖示 -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        .tab-btn.active {
-            border-bottom: 3px solid #3b82f6;
-            color: #60a5fa;
-            font-weight: 600;
-        }
-        .status-card {
-            transition: all 0.2s ease-in-out;
-        }
-        .status-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
-        }
-        /* 客製深色滾動條 */
-        ::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
-        }
-        ::-webkit-scrollbar-track {
-            background: #0f172a;
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #334155;
-            border-radius: 4px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: #475569;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>2廠2F 銑床設備即時狀態看板 (手機優化版)</title>
+  <style>
+    /* ===== 全局與基礎樣式 ===== */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+    body {
+      background-color: #0f172a;
+      color: #f8fafc;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+    }
+
+    /* ===== 頁頭與導覽列 (支援橫向滑動) ===== */
+    header {
+      background-color: #1e293b;
+      padding: 0.6rem 0.8rem;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+      border-bottom: 1px solid #334155;
+    }
+    .header-title {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: #38bdf8;
+      margin-bottom: 0.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .nav-tabs {
+      display: flex;
+      gap: 0.4rem;
+      overflow-x: auto;
+      white-space: nowrap;
+      -webkit-overflow-scrolling: touch;
+      padding-bottom: 0.2rem;
+    }
+    .nav-tabs::-webkit-scrollbar { display: none; }
+    .tab-btn {
+      padding: 0.5rem 0.85rem;
+      background-color: #334155;
+      color: #cbd5e1;
+      border: none;
+      border-radius: 0.5rem;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.85rem;
+      flex-shrink: 0;
+      transition: all 0.2s;
+    }
+    .tab-btn.active {
+      background-color: #0284c7;
+      color: #ffffff;
+      box-shadow: 0 2px 4px rgba(2, 132, 199, 0.4);
+    }
+
+    /* ===== 數據看板 (手機雙欄網格) ===== */
+    #dashboard {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.5rem;
+      padding: 0.6rem 0.8rem;
+      background-color: #1e293b;
+      border-bottom: 1px solid #334155;
+    }
+    @media (max-width: 480px) {
+      #dashboard {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+    .card {
+      background-color: #0f172a;
+      padding: 0.5rem 0.6rem;
+      border-radius: 0.5rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      border-left: 3px solid #94a3b8;
+    }
+    .card.running { border-left-color: #22c55e; }
+    .card.fault { border-left-color: #ef4444; }
+    .card.waiting { border-left-color: #eab308; }
+    .card.idle { border-left-color: #94a3b8; }
+    .card.rate { border-left-color: #38bdf8; grid-column: span 1; }
+
+    .card .count {
+      font-size: 1.25rem;
+      font-weight: 800;
+      line-height: 1.2;
+    }
+    .card .label {
+      font-size: 0.7rem;
+      color: #cbd5e1;
+      margin-top: 0.1rem;
+    }
+
+    /* ===== 內容區域 ===== */
+    .tab-content {
+      display: none;
+      flex: 1;
+      padding: 0.8rem;
+    }
+    .tab-content.active {
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* --- 平面圖 Layout 與手機縮放控制 --- */
+    #mapContainer {
+      position: relative;
+      background-color: #020617;
+      overflow: hidden;
+      border-radius: 0.5rem;
+      border: 1px solid #334155;
+      height: 65vh;
+      width: 100%;
+      touch-action: none;
+    }
+    #svgWrapper {
+      width: 100%;
+      height: 100%;
+      transform-origin: 0 0;
+      transition: transform 0.1s ease-out;
+      cursor: grab;
+    }
+    #svgWrapper:active { cursor: grabbing; }
+
+    /* 手機地圖縮放控制鈕 */
+    .map-controls {
+      position: absolute;
+      bottom: 0.8rem;
+      right: 0.8rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      z-index: 10;
+    }
+    .map-btn {
+      width: 38px;
+      height: 38px;
+      background-color: rgba(30, 41, 59, 0.9);
+      border: 1px solid #475569;
+      color: #fff;
+      border-radius: 50%;
+      font-size: 1.2rem;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    }
+
+    .machine-node { cursor: pointer; }
+    .fault-node { animation: pulse-red 1.5s infinite alternate; }
+    @keyframes pulse-red {
+      from { filter: drop-shadow(0 0 2px #ef4444); }
+      to { filter: drop-shadow(0 0 8px #ef4444); }
+    }
+
+    /* --- 搜尋與過濾列 --- */
+    .filter-bar {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      margin-bottom: 0.8rem;
+    }
+    @media (min-width: 640px) {
+      .filter-bar {
+        flex-direction: row;
+        align-items: center;
+      }
+    }
+    .filter-bar input, .filter-bar select {
+      padding: 0.6rem 0.8rem;
+      border-radius: 0.5rem;
+      border: 1px solid #475569;
+      background-color: #1e293b;
+      color: #fff;
+      font-size: 16px; /* 防止 iOS Focus 自動放大 */
+      width: 100%;
+    }
+    .btn-action {
+      padding: 0.65rem 1rem;
+      background-color: #0284c7;
+      color: #fff;
+      border: none;
+      border-radius: 0.5rem;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.9rem;
+      text-align: center;
+    }
+
+    /* --- 清單與歷史紀錄：手機端轉卡片模式 (Card View) --- */
+    .table-container {
+      overflow-x: auto;
+      background-color: #1e293b;
+      border-radius: 0.5rem;
+      border: 1px solid #334155;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 0.85rem;
+    }
+    th, td {
+      padding: 0.65rem 0.8rem;
+      border-bottom: 1px solid #334155;
+    }
+    th {
+      background-color: #0f172a;
+      color: #38bdf8;
+      white-space: nowrap;
+    }
+
+    /* 手機視圖下的卡片化處理 */
+    .card-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+    }
+    .mobile-card {
+      background-color: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 0.5rem;
+      padding: 0.8rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      cursor: pointer;
+    }
+    .mobile-card:active { background-color: #334155; }
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #334155;
+      padding-bottom: 0.4rem;
+    }
+    .card-title {
+      font-size: 1rem;
+      font-weight: bold;
+      color: #38bdf8;
+    }
+    .card-body-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.82rem;
+      color: #cbd5e1;
+    }
+
+    .status-badge {
+      padding: 0.2rem 0.5rem;
+      border-radius: 1rem;
+      font-size: 0.72rem;
+      font-weight: bold;
+      display: inline-block;
+    }
+    .badge-running { background-color: #166534; color: #4ade80; }
+    .badge-fault { background-color: #991b1b; color: #fca5a5; }
+    .badge-waiting { background-color: #854d0e; color: #fef08a; }
+    .badge-idle { background-color: #374151; color: #d1d5db; }
+
+    /* ===== 手機抽屜式彈窗 (Bottom Sheet Modal) ===== */
+    .modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background-color: rgba(0, 0, 0, 0.7);
+      display: flex;
+      justify-content: center;
+      align-items: flex-end; /* 手機端靠底 */
+      z-index: 1000;
+      backdrop-filter: blur(3px);
+      transition: opacity 0.2s;
+    }
+    @media (min-width: 640px) {
+      .modal { align-items: center; }
+    }
+    .modal.hidden { display: none; }
+    .modal-content {
+      background-color: #1e293b;
+      padding: 1.2rem;
+      border-radius: 1rem 1rem 0 0; /* 底部抽屜造型 */
+      width: 100%;
+      max-width: 500px;
+      max-height: 85vh;
+      overflow-y: auto;
+      border-top: 2px solid #38bdf8;
+      position: relative;
+      box-shadow: 0 -4px 20px rgba(0,0,0,0.5);
+    }
+    @media (min-width: 640px) {
+      .modal-content { border-radius: 0.75rem; border: 1px solid #475569; }
+    }
+    .close-btn {
+      position: absolute;
+      top: 0.8rem;
+      right: 1rem;
+      font-size: 1.6rem;
+      color: #94a3b8;
+      cursor: pointer;
+      padding: 0.2rem 0.5rem;
+    }
+    .modal h2 { font-size: 1.1rem; color: #38bdf8; margin-bottom: 0.8rem; padding-right: 2rem; }
+    .form-group { margin-bottom: 0.7rem; display: flex; flex-direction: column; gap: 0.3rem; }
+    .form-group label { font-size: 0.82rem; color: #cbd5e1; }
+    .form-group input, .form-group select {
+      padding: 0.6rem;
+      border-radius: 0.375rem;
+      border: 1px solid #475569;
+      background-color: #0f172a;
+      color: #fff;
+      font-size: 16px; /* 阻止 iOS 放大 */
+    }
+    .btn-submit {
+      width: 100%;
+      padding: 0.8rem;
+      background-color: #16a34a;
+      color: #fff;
+      border: none;
+      border-radius: 0.5rem;
+      font-weight: 700;
+      font-size: 1rem;
+      cursor: pointer;
+      margin-top: 0.6rem;
+      box-shadow: 0 2px 6px rgba(22, 163, 74, 0.4);
+    }
+  </style>
 </head>
-<body class="bg-slate-950 text-slate-100 font-sans min-h-screen flex flex-col selection:bg-blue-600 selection:text-white">
+<body>
 
-    <!-- 頂部標頭與 KPI 統計 -->
-    <header class="bg-slate-900 border-b border-slate-800 shadow-lg sticky top-0 z-50">
-        <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap justify-between items-center gap-4">
-            <div class="flex items-center space-x-3">
-                <i class="fa-solid font-bold text-blue-500 text-2xl fa-industry"></i>
-                <h1 class="text-xl font-bold tracking-wide text-white">廠區設備即時狀態監控看板</h1>
-            </div>
-            
-            <!-- KPI 數據 -->
-            <div class="flex items-center space-x-3 text-sm">
-                <div class="bg-slate-950 px-3 py-1.5 rounded-lg border border-slate-800 flex items-center space-x-2">
-                    <span class="w-3 h-3 rounded-full bg-emerald-500 inline-block shadow-[0_0_8px_rgba(16,185,129,0.5)]"></span>
-                    <span class="text-slate-400">運作中:</span>
-                    <span id="kpi-running" class="font-bold text-emerald-400 text-base">0</span>
-                </div>
-                <div class="bg-slate-950 px-3 py-1.5 rounded-lg border border-slate-800 flex items-center space-x-2">
-                    <span class="w-3 h-3 rounded-full bg-rose-500 inline-block animate-pulse shadow-[0_0_8px_rgba(244,63,94,0.6)]"></span>
-                    <span class="text-slate-400">故障停機:</span>
-                    <span id="kpi-down" class="font-bold text-rose-400 text-base">0</span>
-                </div>
-                <div class="bg-slate-950 px-3 py-1.5 rounded-lg border border-slate-800 flex items-center space-x-2">
-                    <span class="w-3 h-3 rounded-full bg-amber-500 inline-block shadow-[0_0_8px_rgba(245,158,11,0.5)]"></span>
-                    <span class="text-slate-400">保養巡檢:</span>
-                    <span id="kpi-maint" class="font-bold text-amber-400 text-base">0</span>
-                </div>
-            </div>
-        </div>
+  <header>
+    <div class="header-title">
+      <span>🏭 2廠2F 銑床狀態看板</span>
+      <span id="mobileRateText" style="font-size:0.85rem; color:#38bdf8;"></span>
+    </div>
+    <div class="nav-tabs">
+      <button class="tab-btn active" onclick="switchTab('mapTab', event)">🗺️ Layout 地圖</button>
+      <button class="tab-btn" onclick="switchTab('listTab', event)">📋 設備清單</button>
+      <button class="tab-btn" onclick="switchTab('historyTab', event)">📜 異動履歷</button>
+    </div>
+  </header>
 
-        <!-- 頁籤選單 -->
-        <div class="bg-slate-900/80 backdrop-blur border-t border-slate-800/80">
-            <div class="max-w-7xl mx-auto px-4 flex space-x-8">
-                <button onclick="switchTab('all')" id="tab-all" class="tab-btn active py-3 text-slate-400 hover:text-white flex items-center space-x-2 transition">
-                    <i class="fa-solid fa-border-all"></i>
-                    <span>全廠設備看板</span>
-                </button>
-                <button onclick="switchTab('fault')" id="tab-fault" class="tab-btn py-3 text-slate-400 hover:text-white flex items-center space-x-2 transition">
-                    <i class="fa-solid fa-triangle-exclamation text-rose-400"></i>
-                    <span>故障設備清單</span>
-                    <span id="fault-badge" class="bg-rose-500 text-white text-xs px-2 py-0.5 rounded-full hidden">0</span>
-                </button>
-                <button onclick="switchTab('history')" id="tab-history" class="tab-btn py-3 text-slate-400 hover:text-white flex items-center space-x-2 transition">
-                    <i class="fa-solid fa-file-excel text-emerald-400"></i>
-                    <span>巡檢與履歷報表 (30天)</span>
-                </button>
-            </div>
-        </div>
-    </header>
+  <!-- 頂部即時數據 -->
+  <section id="dashboard">
+    <div class="card running">
+      <span class="count" id="countRunning">0</span>
+      <span class="label">🟢 生產中</span>
+    </div>
+    <div class="card fault">
+      <span class="count" id="countFault">0</span>
+      <span class="label">🔴 故障</span>
+    </div>
+    <div class="card waiting">
+      <span class="count" id="countWaiting">0</span>
+      <span class="label">🟡 待料</span>
+    </div>
+    <div class="card idle">
+      <span class="count" id="countIdle">0</span>
+      <span class="label">⚪ 無排產</span>
+    </div>
+    <div class="card rate">
+      <span class="count" id="utilizationRate">0%</span>
+      <span class="label">📊 稼動率</span>
+    </div>
+  </section>
 
-    <!-- 主內容區 -->
-    <main class="max-w-7xl mx-auto px-4 py-6 flex-grow w-full">
+  <!-- 分頁 1: Layout 平面圖 (支援拖動與縮放) -->
+  <main id="mapTab" class="tab-content active">
+    <div id="mapContainer">
+      <!-- 手機端縮放浮動按鈕 -->
+      <div class="map-controls">
+        <button class="map-btn" onclick="zoomMap(1.2)">＋</button>
+        <button class="map-btn" onclick="zoomMap(0.8)">－</button>
+        <button class="map-btn" onclick="resetMapZoom()">↺</button>
+      </div>
 
-        <!-- 頁籤一：全廠設備看板 -->
-        <section id="view-all" class="space-y-4">
-            <div class="flex justify-between items-center bg-slate-900 p-3 rounded-lg border border-slate-800 shadow-md">
-                <div class="flex items-center space-x-2">
-                    <i class="fa-solid fa-filter text-slate-500"></i>
-                    <span class="text-sm font-semibold text-slate-300">區域篩選：</span>
-                    <select id="area-filter" onchange="renderAllDevices()" class="border border-slate-700 rounded px-3 py-1.5 text-sm bg-slate-950 text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        <option value="ALL">全部區域</option>
-                    </select>
-                </div>
-                <button onclick="openAddDeviceModal()" class="bg-blue-600 hover:bg-blue-500 text-white text-sm px-3.5 py-1.5 rounded-md flex items-center space-x-1.5 shadow-md transition">
-                    <i class="fa-solid fa-plus"></i>
-                    <span>新增設備</span>
-                </button>
-            </div>
+      <div id="svgWrapper">
+        <svg viewBox="0 0 1400 900" xmlns="http://www.w3.org/2000/svg">
+          <rect x="10" y="10" width="1380" height="880" fill="#1e293b" stroke="#475569" stroke-width="4" rx="8"/>
+          <rect x="30" y="30" width="200" height="70" fill="#0f172a" stroke="#334155" stroke-dasharray="4"/>
+          <text x="130" y="70" fill="#64748b" font-size="16" text-anchor="middle">QC 檢驗室</text>
+          
+          <rect x="1170" y="30" width="200" height="70" fill="#0f172a" stroke="#334155" stroke-dasharray="4"/>
+          <text x="1270" y="70" fill="#64748b" font-size="16" text-anchor="middle">電器室</text>
+          
+          <text x="700" y="60" fill="#475569" font-size="20" text-anchor="middle" font-weight="bold">2廠 2F 銑床加工區 (134 台)</text>
 
-            <!-- 卡片容器 -->
-            <div id="device-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                <!-- 由 JavaScript 自動繪製 -->
-            </div>
-        </section>
+          <g id="machineNodesGroup"></g>
+        </svg>
+      </div>
+    </div>
+  </main>
 
-        <!-- 頁籤二：故障設備清單 -->
-        <section id="view-fault" class="hidden space-y-4">
-            <div class="bg-rose-950/40 border-l-4 border-rose-500 p-4 rounded-r-lg border-y border-r border-rose-900/50 flex justify-between items-center">
-                <div class="flex items-center space-x-3">
-                    <i class="fa-solid fa-circle-exclamation text-rose-500 text-xl"></i>
-                    <div>
-                        <h3 class="font-bold text-rose-200">當前異常停機設備專區</h3>
-                        <p class="text-xs text-rose-400/80">實時監控故障機台，修復完工後點擊【修復完成】即可恢復運作狀態。</p>
-                    </div>
-                </div>
-            </div>
-            <div id="fault-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                <!-- 故障卡片將渲染於此 -->
-            </div>
-        </section>
-
-        <!-- 頁籤三：巡檢與履歷報表 -->
-        <section id="view-history" class="hidden space-y-4">
-            <div class="bg-slate-900 p-4 rounded-lg border border-slate-800 shadow-md flex flex-wrap justify-between items-center gap-4">
-                <div class="flex flex-wrap items-center gap-3">
-                    <div>
-                        <label class="block text-xs text-slate-400 mb-1">開始日期</label>
-                        <input type="date" id="report-start" class="border border-slate-700 bg-slate-950 text-slate-200 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500">
-                    </div>
-                    <div>
-                        <label class="block text-xs text-slate-400 mb-1">結束日期</label>
-                        <input type="date" id="report-end" class="border border-slate-700 bg-slate-950 text-slate-200 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500">
-                    </div>
-                    <div class="self-end">
-                        <button onclick="filterHistory()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-sm px-3.5 py-1.5 rounded transition">
-                            <i class="fa-solid fa-magnifying-glass mr-1"></i>查詢
-                        </button>
-                    </div>
-                </div>
-                <button onclick="exportToExcel()" class="bg-emerald-600 hover:bg-emerald-500 text-white text-sm px-4 py-2 rounded-lg font-medium shadow-md flex items-center space-x-2 transition">
-                    <i class="fa-solid fa-file-excel text-base"></i>
-                    <span>匯出 Excel 報表</span>
-                </button>
-            </div>
-
-            <!-- 報表表格 -->
-            <div class="bg-slate-900 rounded-lg border border-slate-800 shadow-md overflow-hidden">
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left text-sm text-slate-300">
-                        <thead class="bg-slate-950 text-slate-400 uppercase text-xs border-b border-slate-800">
-                            <tr>
-                                <th class="px-4 py-3">機台編號</th>
-                                <th class="px-4 py-3">事件類型</th>
-                                <th class="px-4 py-3">開始時間</th>
-                                <th class="px-4 py-3">結束/修復時間</th>
-                                <th class="px-4 py-3">總停機時長</th>
-                                <th class="px-4 py-3">紀錄人員 / 原因備註</th>
-                            </tr>
-                        </thead>
-                        <tbody id="history-table-body" class="divide-y divide-slate-800/60">
-                            <!-- 歷史紀錄渲染區域 -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </section>
-
-    </main>
-
-    <!-- 彈出視窗：故障報修 / 巡檢登記 -->
-    <div id="action-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center hidden z-50">
-        <div class="bg-slate-900 border border-slate-800 rounded-xl shadow-2xl w-full max-w-md p-6 space-y-4">
-            <div class="flex justify-between items-center border-b border-slate-800 pb-3">
-                <h3 id="modal-title" class="text-lg font-bold text-white">設備操作登記</h3>
-                <button onclick="closeModal()" class="text-slate-500 hover:text-slate-300 transition"><i class="fa-solid fa-xmark text-xl"></i></button>
-            </div>
-            
-            <form id="modal-form" onsubmit="handleModalSubmit(event)" class="space-y-3">
-                <input type="hidden" id="modal-device-id">
-                <input type="hidden" id="modal-action-type">
-
-                <div>
-                    <label class="block text-xs font-semibold text-slate-400 mb-1">機台編號</label>
-                    <input type="text" id="modal-device-code" readonly class="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-sm text-slate-300 focus:outline-none">
-                </div>
-
-                <div id="modal-reason-group">
-                    <label class="block text-xs font-semibold text-slate-400 mb-1">故障原因 / 備註說明</label>
-                    <textarea id="modal-reason" rows="3" class="w-full bg-slate-950 border border-slate-800 text-slate-200 rounded p-2.5 text-sm focus:ring-1 focus:ring-blue-500 focus:outline-none" placeholder="請輸入故障原因或保養項目..."></textarea>
-                </div>
-
-                <div>
-                    <label class="block text-xs font-semibold text-slate-400 mb-1">操作人員</label>
-                    <input type="text" id="modal-operator" required class="w-full bg-slate-950 border border-slate-800 text-slate-200 rounded px-3 py-2 text-sm focus:ring-1 focus:ring-blue-500 focus:outline-none" placeholder="請輸入姓名">
-                </div>
-
-                <div class="flex justify-end space-x-2 pt-3 border-t border-slate-800">
-                    <button type="button" onclick="closeModal()" class="px-4 py-2 border border-slate-700 bg-slate-800 rounded-md text-sm text-slate-300 hover:bg-slate-700 transition">取消</button>
-                    <button type="submit" id="modal-submit-btn" class="px-4 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-500 transition">確認送出</button>
-                </div>
-            </form>
-        </div>
+  <!-- 分頁 2: 全部設備清單 -->
+  <main id="listTab" class="tab-content">
+    <div class="filter-bar">
+      <input type="text" id="searchInput" placeholder="🔍 搜尋編號/型號/料號/製程..." oninput="renderList()">
+      <select id="statusFilter" onchange="renderList()">
+        <option value="ALL">全部狀態</option>
+        <option value="running">🟢 生產中</option>
+        <option value="fault">🔴 設備故障</option>
+        <option value="waiting">🟡 待料</option>
+        <option value="idle">⚪ 無排產</option>
+      </select>
+      <button class="btn-action" onclick="exportToCSV()">📥 匯出 CSV 報表</button>
     </div>
 
-    <!-- 彈出視窗：新增設備 -->
-    <div id="add-device-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center hidden z-50">
-        <div class="bg-slate-900 border border-slate-800 rounded-xl shadow-2xl w-full max-w-md p-6 space-y-4">
-            <div class="flex justify-between items-center border-b border-slate-800 pb-3">
-                <h3 class="text-lg font-bold text-white">新增設備</h3>
-                <button onclick="closeAddDeviceModal()" class="text-slate-500 hover:text-slate-300 transition"><i class="fa-solid fa-xmark text-xl"></i></button>
-            </div>
-            
-            <form onsubmit="handleAddDeviceSubmit(event)" class="space-y-3">
-                <div>
-                    <label class="block text-xs font-semibold text-slate-400 mb-1">機台編號 (例如: Brother M300)</label>
-                    <input type="text" id="new-device-code" required class="w-full bg-slate-950 border border-slate-800 text-slate-200 rounded px-3 py-2 text-sm focus:ring-1 focus:ring-blue-500 focus:outline-none">
-                </div>
-                <div>
-                    <label class="block text-xs font-semibold text-slate-400 mb-1">所屬區域</label>
-                    <input type="text" id="new-device-area" placeholder="例如: 口腔罩模組 / A區" required class="w-full bg-slate-950 border border-slate-800 text-slate-200 rounded px-3 py-2 text-sm focus:ring-1 focus:ring-blue-500 focus:outline-none">
-                </div>
-                <div class="flex justify-end space-x-2 pt-3 border-t border-slate-800">
-                    <button type="button" onclick="closeAddDeviceModal()" class="px-4 py-2 border border-slate-700 bg-slate-800 rounded-md text-sm text-slate-300 hover:bg-slate-700 transition">取消</button>
-                    <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-500 transition">新增</button>
-                </div>
-            </form>
+    <!-- 容器 (自動在手機切換為卡片式，桌機切換為表格) -->
+    <div id="listContainer"></div>
+  </main>
+
+  <!-- 分頁 3: 歷史履歷紀錄 -->
+  <main id="historyTab" class="tab-content">
+    <div id="historyContainer"></div>
+  </main>
+
+  <!-- 狀態編輯彈窗 (手機底部抽屜式 Modal) -->
+  <div id="statusModal" class="modal hidden" onclick="handleModalBackdropClick(event)">
+    <div class="modal-content" onclick="event.stopPropagation()">
+      <span class="close-btn" onclick="closeModal()">&times;</span>
+      <h2 id="modalTitle">⚙️ 設備狀態更新</h2>
+      <form id="updateForm">
+        <input type="hidden" id="modalMachineId">
+        <div class="form-group">
+          <label for="modalStatus">設備狀態：</label>
+          <select id="modalStatus">
+            <option value="running">🟢 生產中</option>
+            <option value="fault">🔴 設備故障</option>
+            <option value="waiting">🟡 待料</option>
+            <option value="idle">⚪ 無排產</option>
+          </select>
         </div>
+        <div class="form-group">
+          <label for="modalPartNumber">生產料號：</label>
+          <input type="text" id="modalPartNumber" placeholder="例: PN-9082">
+        </div>
+        <div class="form-group">
+          <label for="modalProcess">製程：</label>
+          <input type="text" id="modalProcess" placeholder="例: OP20 銑1">
+        </div>
+        <div class="form-group">
+          <label for="modalFaultReason">故障原因 / 備註：</label>
+          <input type="text" id="modalFaultReason" placeholder="請輸入備註或故障原因">
+        </div>
+        <div class="form-group">
+          <label for="modalUpdatedBy">更新人員：</label>
+          <input type="text" id="modalUpdatedBy" placeholder="例: 王小明">
+        </div>
+        <button type="submit" class="btn-submit">💾 儲存並即時更新</button>
+      </form>
     </div>
+  </div>
 
-    <!-- 系統核心邏輯 JavaScript -->
-    <script>
-        // 資料狀態（優先讀取 LocalStorage）
-        let devices = JSON.parse(localStorage.getItem('sys_devices')) || [
-            { id: '1', code: 'Brother M184', area: '1F 口腔罩模組', status: 'RUNNING', startTime: null, reason: '' },
-            { id: '2', code: 'Brother M188', area: '1F 口腔罩模組', status: 'RUNNING', startTime: null, reason: '' },
-            { id: '3', code: 'Brother M252', area: '2F 加工區', status: 'RUNNING', startTime: null, reason: '' },
-            { id: '4', code: 'Brother M283', area: '2F 加工區', status: 'FAULT', startTime: Date.now() - (2 * 86400000 + 12 * 3600000), reason: '主軸異音急停' }
-        ];
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { 
+      getFirestore, collection, doc, setDoc, addDoc, onSnapshot, query, orderBy, limit, serverTimestamp 
+    } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-        let historyLogs = JSON.parse(localStorage.getItem('sys_history')) || [
-            { id: 'h1', code: 'Brother M283', type: '故障報修', startTime: new Date(Date.now() - (2 * 86400000 + 12 * 3600000)).toISOString(), endTime: '-', duration: '計時中...', operator: '張工程師', reason: '主軸異音急停' }
-        ];
+    // 1. Firebase 設定
+    const firebaseConfig = {
+      apiKey: "AIzaSyBLe8_cwgGolIQVJyVl7w_Xrf1Bu4LNPnk",
+      authDomain: "cnc-milling-equipment-status.firebaseapp.com",
+      projectId: "cnc-milling-equipment-status",
+      storageBucket: "cnc-milling-equipment-status.firebasestorage.app",
+      messagingSenderId: "824263707679",
+      appId: "1:824263707679:web:a8aed17d867f610cb6d92a",
+      measurementId: "G-QGR2H51K66"
+    };
 
-        // 初始化
-        window.onload = function() {
-            initAreaFilter();
-            renderAllDevices();
-            renderFaultDevices();
-            renderHistoryTable();
-            updateKPI();
-            
-            // 啟動定時器（每秒更新停機時間）
-            setInterval(updateTimers, 1000);
-            
-            // 預設日期區間為近30天
-            const end = new Date();
-            const start = new Date();
-            start.setDate(start.getDate() - 30);
-            document.getElementById('report-end').value = end.toISOString().split('T')[0];
-            document.getElementById('report-start').value = start.toISOString().split('T')[0];
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    // 2. 134 台機台基礎數據
+    const baseEquipmentList = [{"id": "M02", "model": "TR-45L", "brand": "森合"}, {"id": "M38", "model": "TR-60A", "brand": "森合"}, {"id": "M47", "model": "TR-60A", "brand": "森合"}, {"id": "M48", "model": "TR-60A", "brand": "森合"}, {"id": "M58", "model": "TR-60A", "brand": "森合"}, {"id": "M73", "model": "TR-60A", "brand": "森合"}, {"id": "M121", "model": "TR-60A", "brand": "森合"}, {"id": "M122", "model": "TR-60A", "brand": "森合"}, {"id": "M123", "model": "TR-60A", "brand": "森合"}, {"id": "M126", "model": "TR-45E", "brand": "森合"}, {"id": "M144", "model": "TR-70A", "brand": "森合"}, {"id": "M153", "model": "TC-S2DN", "brand": "Brother"}, {"id": "M154", "model": "TC-S2DN", "brand": "Brother"}, {"id": "M155", "model": "TC-S2DN", "brand": "Brother"}, {"id": "M156", "model": "TC-S2DN", "brand": "Brother"}, {"id": "M157", "model": "TC-S2DN", "brand": "Brother"}, {"id": "M158", "model": "TC-S2DN", "brand": "Brother"}, {"id": "M159", "model": "TC-S2DN", "brand": "Brother"}, {"id": "M160", "model": "TC-S2DN", "brand": "Brother"}, {"id": "M161", "model": "TC-S2DN", "brand": "Brother"}, {"id": "M163", "model": "TC-S2DN-O", "brand": "Brother"}, {"id": "M164", "model": "TC-S2DN-O", "brand": "Brother"}, {"id": "M165", "model": "TC-S2DN-O", "brand": "Brother"}, {"id": "M166", "model": "TC-S2DN-O", "brand": "Brother"}, {"id": "M167", "model": "TC-S2DN-O", "brand": "Brother"}, {"id": "M171", "model": "TC-R2B", "brand": "Brother"}, {"id": "M173", "model": "TC-R2B", "brand": "Brother"}, {"id": "M175", "model": "TC-R2B", "brand": "Brother"}, {"id": "M176", "model": "TC-R2B", "brand": "Brother"}, {"id": "M177", "model": "TC-R2B", "brand": "Brother"}, {"id": "M178", "model": "TC-R2B", "brand": "Brother"}, {"id": "M180", "model": "TC-R2B", "brand": "Brother"}, {"id": "M181", "model": "TC-R2B", "brand": "Brother"}, {"id": "M182", "model": "TC-R2B", "brand": "Brother"}, {"id": "M183", "model": "TC-R2B", "brand": "Brother"}, {"id": "M184", "model": "TC-R2B", "brand": "Brother"}, {"id": "M188", "model": "R450X1", "brand": "Brother"}, {"id": "M192", "model": "R450X1", "brand": "Brother"}, {"id": "M193", "model": "R450X1", "brand": "Brother"}, {"id": "M194", "model": "R450X1", "brand": "Brother"}, {"id": "M195", "model": "R450X1", "brand": "Brother"}, {"id": "M196", "model": "R450X1", "brand": "Brother"}, {"id": "M197", "model": "R450X1", "brand": "Brother"}, {"id": "M198", "model": "R450X1", "brand": "Brother"}, {"id": "M199", "model": "R450X1", "brand": "Brother"}, {"id": "M200", "model": "R450X1", "brand": "Brother"}, {"id": "M201", "model": "R450X1", "brand": "Brother"}, {"id": "M202", "model": "R450X1", "brand": "Brother"}, {"id": "M203", "model": "R450X1", "brand": "Brother"}, {"id": "M204", "model": "R450X1", "brand": "Brother"}, {"id": "M205", "model": "R450X1", "brand": "Brother"}, {"id": "M206", "model": "R450X1", "brand": "Brother"}, {"id": "M207", "model": "R450X1", "brand": "Brother"}, {"id": "M208", "model": "R450X1", "brand": "Brother"}, {"id": "M209", "model": "R450X1", "brand": "Brother"}, {"id": "M210", "model": "R450X1", "brand": "Brother"}, {"id": "M211", "model": "R450X1", "brand": "Brother"}, {"id": "M212", "model": "R450X1", "brand": "Brother"}, {"id": "M213", "model": "R450X1", "brand": "Brother"}, {"id": "M214", "model": "R450X1", "brand": "Brother"}, {"id": "M215", "model": "R450X1", "brand": "Brother"}, {"id": "M216", "model": "R450X1", "brand": "Brother"}, {"id": "M217", "model": "R450X1", "brand": "Brother"}, {"id": "M218", "model": "S700X1", "brand": "Brother"}, {"id": "M219", "model": "S700X1", "brand": "Brother"}, {"id": "M220", "model": "S700X1", "brand": "Brother"}, {"id": "M221", "model": "S700X1", "brand": "Brother"}, {"id": "M222", "model": "S700X1", "brand": "Brother"}, {"id": "M223", "model": "S700X1", "brand": "Brother"}, {"id": "M224", "model": "S700X1", "brand": "Brother"}, {"id": "M225", "model": "S700X1", "brand": "Brother"}, {"id": "M226", "model": "S700X1", "brand": "Brother"}, {"id": "M227", "model": "S700X1", "brand": "Brother"}, {"id": "M228", "model": "S700X1", "brand": "Brother"}, {"id": "M229", "model": "S700X1", "brand": "Brother"}, {"id": "M230", "model": "S700X1", "brand": "Brother"}, {"id": "M234", "model": "S700X1", "brand": "Brother"}, {"id": "M237", "model": "S700X1", "brand": "Brother"}, {"id": "M251", "model": "S500X1", "brand": "Brother"}, {"id": "M252", "model": "S500X1", "brand": "Brother"}, {"id": "M253", "model": "S500X1", "brand": "Brother"}, {"id": "M254", "model": "S500X1", "brand": "Brother"}, {"id": "M255", "model": "S500X1", "brand": "Brother"}, {"id": "M256", "model": "R450X1", "brand": "Brother"}, {"id": "M257", "model": "S700X2", "brand": "Brother"}, {"id": "M258", "model": "S700X2", "brand": "Brother"}, {"id": "M259", "model": "S700X2", "brand": "Brother"}, {"id": "M260", "model": "S700X2", "brand": "Brother"}, {"id": "M261", "model": "S700X2", "brand": "Brother"}, {"id": "M262", "model": "S700X2", "brand": "Brother"}, {"id": "M266", "model": "R450X2", "brand": "Brother"}, {"id": "M267", "model": "R450X2", "brand": "Brother"}, {"id": "M268", "model": "R450X2", "brand": "Brother"}, {"id": "M269", "model": "R450X2", "brand": "Brother"}, {"id": "M270", "model": "S500X2", "brand": "Brother"}, {"id": "M271", "model": "S500X2", "brand": "Brother"}, {"id": "M272", "model": "S500X2", "brand": "Brother"}, {"id": "M273", "model": "S500X2", "brand": "Brother"}, {"id": "M274", "model": "S500X2", "brand": "Brother"}, {"id": "M276", "model": "U500XD1 RD", "brand": "Brother"}, {"id": "M277", "model": "U500XD1 RD", "brand": "Brother"}, {"id": "M278", "model": "U500XD1 RD", "brand": "Brother"}, {"id": "M279", "model": "U500XD1 RD", "brand": "Brother"}, {"id": "M280", "model": "S500XD1", "brand": "Brother"}, {"id": "M281", "model": "S500XD1", "brand": "Brother"}, {"id": "M282", "model": "S500XD1", "brand": "Brother"}, {"id": "M283", "model": "S500XD1", "brand": "Brother"}, {"id": "M284", "model": "S500XD1", "brand": "Brother"}, {"id": "M285", "model": "S500XD1", "brand": "Brother"}, {"id": "M286", "model": "S500XD1", "brand": "Brother"}, {"id": "M287", "model": "S500XD1", "brand": "Brother"}, {"id": "M288", "model": "S500X2", "brand": "Brother"}, {"id": "M289", "model": "S500X2", "brand": "Brother"}, {"id": "M290", "model": "S500X2", "brand": "Brother"}, {"id": "M291", "model": "S500X2", "brand": "Brother"}, {"id": "M292", "model": "S500X2", "brand": "Brother"}, {"id": "M293", "model": "S500X2", "brand": "Brother"}, {"id": "M294", "model": "S500X2", "brand": "Brother"}, {"id": "M295", "model": "S500X2", "brand": "Brother"}, {"id": "M296", "model": "S500X2", "brand": "Brother"}, {"id": "M297", "model": "S500X2", "brand": "Brother"}, {"id": "M298", "model": "S500X2", "brand": "Brother"}, {"id": "M299", "model": "S500X2", "brand": "Brother"}, {"id": "M300", "model": "S500X2", "brand": "Brother"}, {"id": "M301", "model": "S500X2", "brand": "Brother"}, {"id": "M302", "model": "S500X2", "brand": "Brother"}, {"id": "M303", "model": "S500X2", "brand": "Brother"}, {"id": "M304", "model": "S500X2", "brand": "Brother"}, {"id": "M305", "model": "S500X2", "brand": "Brother"}, {"id": "M306", "model": "S500X2", "brand": "Brother"}, {"id": "M307", "model": "S500XD1-5AX", "brand": "Brother"}, {"id": "M308", "model": "S500XD1-5AX", "brand": "Brother"}, {"id": "M309", "model": "S500XD1-5AX", "brand": "Brother"}, {"id": "M310", "model": "S500XD1-5AX", "brand": "Brother"}];
+
+    let realtimeData = {};
+
+    const statusColors = {
+      running: "#22c55e",
+      fault: "#ef4444",
+      waiting: "#eab308",
+      idle: "#475569"
+    };
+
+    const statusBadges = {
+      running: '<span class="status-badge badge-running">🟢 生產中</span>',
+      fault: '<span class="status-badge badge-fault">🔴 設備故障</span>',
+      waiting: '<span class="status-badge badge-waiting">🟡 待料</span>',
+      idle: '<span class="status-badge badge-idle">⚪ 無排產</span>'
+    };
+
+    document.addEventListener("DOMContentLoaded", () => {
+      renderSvgMachines();
+      initMapTouchEvents();
+      listenFirestoreRealtime();
+      listenHistoryRealtime();
+      initFormEvents();
+      renderList();
+    });
+
+    // 3. 分頁切換
+    window.switchTab = function(tabId, e) {
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+      
+      if(e && e.target) e.target.classList.add('active');
+      document.getElementById(tabId).classList.add('active');
+    };
+
+    // 4. SVG 動態繪製
+    function renderSvgMachines() {
+      const group = document.getElementById("machineNodesGroup");
+      group.innerHTML = "";
+
+      const cols = 15;
+      const startX = 50, startY = 130;
+      const stepX = 88, stepY = 75;
+      const width = 72, height = 48;
+
+      baseEquipmentList.forEach((equip, index) => {
+        const col = index % cols;
+        const row = Math.floor(index / cols);
+
+        const x = startX + col * stepX;
+        const y = startY + row * stepY;
+
+        const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+        g.setAttribute("class", "machine-node");
+        g.setAttribute("data-machine-id", equip.id);
+        g.onclick = () => openModal(equip.id);
+
+        const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+        rect.setAttribute("x", x);
+        rect.setAttribute("y", y);
+        rect.setAttribute("width", width);
+        rect.setAttribute("height", height);
+        rect.setAttribute("rx", "6");
+        rect.setAttribute("fill", "#475569");
+        rect.setAttribute("stroke", "#64748b");
+        rect.setAttribute("stroke-width", "1.5");
+
+        const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        text.setAttribute("x", x + width / 2);
+        text.setAttribute("y", y + height / 2 + 5);
+        text.setAttribute("fill", "#ffffff");
+        text.setAttribute("font-size", "12");
+        text.setAttribute("font-weight", "bold");
+        text.setAttribute("text-anchor", "middle");
+        text.textContent = equip.id;
+
+        g.appendChild(rect);
+        g.appendChild(text);
+        group.appendChild(g);
+      });
+    }
+
+    // 5. 手機地圖手勢拖動與縮放邏輯
+    let scale = 1, currentX = 0, currentY = 0;
+    let isDragging = false, startX = 0, startY = 0;
+
+    function updateMapTransform() {
+      const wrapper = document.getElementById("svgWrapper");
+      wrapper.style.transform = `translate(${currentX}px, ${currentY}px) scale(${scale})`;
+    }
+
+    window.zoomMap = function(factor) {
+      scale *= factor;
+      scale = Math.min(Math.max(0.6, scale), 3.5); // 限制縮放比例
+      updateMapTransform();
+    };
+
+    window.resetMapZoom = function() {
+      scale = 1; currentX = 0; currentY = 0;
+      updateMapTransform();
+    };
+
+    function initMapTouchEvents() {
+      const container = document.getElementById("mapContainer");
+
+      const handleStart = (e) => {
+        isDragging = true;
+        const p = e.touches ? e.touches[0] : e;
+        startX = p.clientX - currentX;
+        startY = p.clientY - currentY;
+      };
+
+      const handleMove = (e) => {
+        if (!isDragging) return;
+        const p = e.touches ? e.touches[0] : e;
+        currentX = p.clientX - startX;
+        currentY = p.clientY - startY;
+        updateMapTransform();
+      };
+
+      const handleEnd = () => { isDragging = false; };
+
+      container.addEventListener("mousedown", handleStart);
+      window.addEventListener("mousemove", handleMove);
+      window.addEventListener("mouseup", handleEnd);
+
+      container.addEventListener("touchstart", handleStart, { passive: true });
+      window.addEventListener("touchmove", handleMove, { passive: true });
+      window.addEventListener("touchend", handleEnd);
+    }
+
+    // 6. Firestore 即時監聽與狀態更新
+    function listenFirestoreRealtime() {
+      onSnapshot(collection(db, "machines"), (snapshot) => {
+        snapshot.forEach((doc) => {
+          realtimeData[doc.id] = doc.data();
+          updateSvgMachineColor(doc.id, doc.data().status);
+        });
+        updateDashboardCounts();
+        renderList();
+      });
+    }
+
+    function updateSvgMachineColor(id, status) {
+      const gNode = document.querySelector(`[data-machine-id="${id}"]`);
+      if (gNode) {
+        const rect = gNode.querySelector("rect");
+        rect.setAttribute("fill", statusColors[status] || "#475569");
+        if (status === "fault") {
+          gNode.classList.add("fault-node");
+        } else {
+          gNode.classList.remove("fault-node");
+        }
+      }
+    }
+
+    function updateDashboardCounts() {
+      let counts = { running: 0, fault: 0, waiting: 0, idle: 0 };
+      baseEquipmentList.forEach(item => {
+        const status = (realtimeData[item.id] && realtimeData[item.id].status) || 'idle';
+        if (counts[status] !== undefined) counts[status]++;
+      });
+
+      document.getElementById("countRunning").textContent = counts.running;
+      document.getElementById("countFault").textContent = counts.fault;
+      document.getElementById("countWaiting").textContent = counts.waiting;
+      document.getElementById("countIdle").textContent = counts.idle;
+
+      const total = baseEquipmentList.length;
+      const rate = total > 0 ? ((counts.running / total) * 100).toFixed(1) : 0;
+      document.getElementById("utilizationRate").textContent = `${rate}%`;
+    }
+
+    // 7. 歷史異動紀錄監聽
+    function listenHistoryRealtime() {
+      const q = query(collection(db, "history"), orderBy("timestamp", "desc"), limit(40));
+      onSnapshot(q, (snapshot) => {
+        const container = document.getElementById("historyContainer");
+        const isMobile = window.innerWidth < 640;
+
+        if (isMobile) {
+          // 手機端以卡片顯示
+          let html = '<div class="card-list">';
+          snapshot.forEach((doc) => {
+            const data = doc.data();
+            const timeStr = data.timestamp ? new Date(data.timestamp.toDate()).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : "剛才";
+            html += `
+              <div class="mobile-card">
+                <div class="card-header">
+                  <span class="card-title">${data.machineId}</span>
+                  ${statusBadges[data.status] || data.status}
+                </div>
+                <div class="card-body-row"><span>料號/製程:</span> <span>${data.partNumber || '-'} / ${data.process || '-'}</span></div>
+                <div class="card-body-row"><span>原因/人員:</span> <span>${data.faultReason || '-'} (${data.updatedBy || '-'})</span></div>
+                <div class="card-body-row"><span style="color:#64748b; font-size:0.75rem;">${timeStr}</span></div>
+              </div>
+            `;
+          });
+          html += '</div>';
+          container.innerHTML = html;
+        } else {
+          // 桌機端以表格顯示
+          let html = `
+            <div class="table-container">
+              <table>
+                <thead>
+                  <tr>
+                    <th>時間</th><th>機台</th><th>狀態</th><th>料號</th><th>製程</th><th>備註/原因</th><th>人員</th>
+                  </tr>
+                </thead>
+                <tbody>`;
+          snapshot.forEach((doc) => {
+            const data = doc.data();
+            const timeStr = data.timestamp ? new Date(data.timestamp.toDate()).toLocaleString() : "剛才";
+            html += `
+              <tr>
+                <td>${timeStr}</td>
+                <td><strong>${data.machineId}</strong></td>
+                <td>${statusBadges[data.status] || data.status}</td>
+                <td>${data.partNumber || "-"}</td>
+                <td>${data.process || "-"}</td>
+                <td>${data.faultReason || "-"}</td>
+                <td>${data.updatedBy || "-"}</td>
+              </tr>
+            `;
+          });
+          html += `</tbody></table></div>`;
+          container.innerHTML = html;
+        }
+      });
+    }
+
+    // 8. 渲染設備清單 (自動適應手機卡片或桌機表格)
+    window.renderList = function() {
+      const container = document.getElementById("listContainer");
+      const search = document.getElementById("searchInput").value.toLowerCase();
+      const filter = document.getElementById("statusFilter").value;
+      const isMobile = window.innerWidth < 640;
+
+      const filtered = baseEquipmentList.filter(equip => {
+        const live = realtimeData[equip.id] || {};
+        const currentStatus = live.status || "idle";
+        if (filter !== "ALL" && currentStatus !== filter) return false;
+        const searchText = `${equip.id} ${equip.model} ${equip.brand} ${live.partNumber || ''} ${live.process || ''}`.toLowerCase();
+        return !search || searchText.includes(search);
+      });
+
+      if (isMobile) {
+        // 手機版：卡片清單模式
+        let html = '<div class="card-list">';
+        filtered.forEach(equip => {
+          const live = realtimeData[equip.id] || {};
+          const currentStatus = live.status || "idle";
+          html += `
+            <div class="mobile-card" onclick="openModal('${equip.id}')">
+              <div class="card-header">
+                <span class="card-title">${equip.id} <small style="font-size:0.75rem; color:#94a3b8;">(${equip.model})</small></span>
+                ${statusBadges[currentStatus]}
+              </div>
+              <div class="card-body-row"><span>生產料號:</span> <strong>${live.partNumber || '-'}</strong></div>
+              <div class="card-body-row"><span>當前製程:</span> <span>${live.process || '-'}</span></div>
+              <div class="card-body-row"><span>備註/人員:</span> <span>${live.faultReason || '-'} ${live.updatedBy ? `(${live.updatedBy})` : ''}</span></div>
+            </div>
+          `;
+        });
+        html += '</div>';
+        container.innerHTML = html;
+      } else {
+        // 桌機版：完整表格模式
+        let html = `
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>資產編號</th><th>廠牌</th><th>型號</th><th>目前狀態</th><th>生產料號</th><th>製程</th><th>故障原因/備註</th><th>更新人員</th>
+                </tr>
+              </thead>
+              <tbody>`;
+        filtered.forEach(equip => {
+          const live = realtimeData[equip.id] || {};
+          const currentStatus = live.status || "idle";
+          html += `
+            <tr onclick="openModal('${equip.id}')">
+              <td><strong>${equip.id}</strong></td>
+              <td>${equip.brand}</td>
+              <td>${equip.model}</td>
+              <td>${statusBadges[currentStatus]}</td>
+              <td>${live.partNumber || "-"}</td>
+              <td>${live.process || "-"}</td>
+              <td>${live.faultReason || "-"}</td>
+              <td>${live.updatedBy || "-"}</td>
+            </tr>
+          `;
+        });
+        html += `</tbody></table></div>`;
+        container.innerHTML = html;
+      }
+    };
+
+    // 9. CSV 匯出
+    window.exportToCSV = function() {
+      let csv = "\uFEFF資產編號,廠牌,型號,狀態,生產料號,製程,備註/原因,更新人員\n";
+      baseEquipmentList.forEach(e => {
+        const live = realtimeData[e.id] || {};
+        csv += `"${e.id}","${e.brand}","${e.model}","${live.status || 'idle'}","${live.partNumber || ''}","${live.process || ''}","${live.faultReason || ''}","${live.updatedBy || ''}"\n`;
+      });
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = `設備狀態報表_${new Date().toISOString().slice(0,10)}.csv`;
+      link.click();
+    };
+
+    // 10. Modal 彈窗與寫入 Firestore
+    window.openModal = function(id) {
+      const modal = document.getElementById("statusModal");
+      const data = realtimeData[id] || {};
+      const baseInfo = baseEquipmentList.find(e => e.id === id) || {};
+
+      document.getElementById("modalTitle").textContent = `⚙️ 更新 ${id} (${baseInfo.model || ""})`;
+      document.getElementById("modalMachineId").value = id;
+      document.getElementById("modalStatus").value = data.status || "idle";
+      document.getElementById("modalPartNumber").value = data.partNumber || "";
+      document.getElementById("modalProcess").value = data.process || "";
+      document.getElementById("modalFaultReason").value = data.faultReason || "";
+      document.getElementById("modalUpdatedBy").value = data.updatedBy || "";
+
+      modal.classList.remove("hidden");
+    };
+
+    window.closeModal = function() {
+      document.getElementById("statusModal").classList.add("hidden");
+    };
+
+    window.handleModalBackdropClick = function(e) {
+      if (e.target.id === "statusModal") closeModal();
+    };
+
+    function initFormEvents() {
+      document.getElementById("updateForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const id = document.getElementById("modalMachineId").value;
+        const updateData = {
+          status: document.getElementById("modalStatus").value,
+          partNumber: document.getElementById("modalPartNumber").value,
+          process: document.getElementById("modalProcess").value,
+          faultReason: document.getElementById("modalFaultReason").value,
+          updatedBy: document.getElementById("modalUpdatedBy").value
         };
 
-        // 儲存資料機制
-        function saveData() {
-            localStorage.setItem('sys_devices', JSON.stringify(devices));
-            localStorage.setItem('sys_history', JSON.stringify(historyLogs));
-            updateKPI();
+        try {
+          await setDoc(doc(db, "machines", id), {
+            ...updateData,
+            updatedAt: serverTimestamp()
+          }, { merge: true });
+
+          await addDoc(collection(db, "history"), {
+            machineId: id,
+            ...updateData,
+            timestamp: serverTimestamp()
+          });
+
+          closeModal();
+        } catch (err) {
+          console.error(err);
+          alert("更新失敗，請檢查網路連線或權限！");
         }
+      });
 
-        // 頁籤切換
-        function switchTab(tabKey) {
-            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-            document.getElementById(`tab-${tabKey}`).classList.add('active');
-
-            document.getElementById('view-all').classList.add('hidden');
-            document.getElementById('view-fault').classList.add('hidden');
-            document.getElementById('view-history').classList.add('hidden');
-
-            if (tabKey === 'all') {
-                document.getElementById('view-all').classList.remove('hidden');
-                renderAllDevices();
-            } else if (tabKey === 'fault') {
-                document.getElementById('view-fault').classList.remove('hidden');
-                renderFaultDevices();
-            } else if (tabKey === 'history') {
-                document.getElementById('view-history').classList.remove('hidden');
-                renderHistoryTable();
-            }
-        }
-
-        // 渲染 KPI 與 區域清單
-        function updateKPI() {
-            const running = devices.filter(d => d.status === 'RUNNING').length;
-            const fault = devices.filter(d => d.status === 'FAULT').length;
-            const maint = devices.filter(d => d.status === 'MAINT').length;
-
-            document.getElementById('kpi-running').innerText = running;
-            document.getElementById('kpi-down').innerText = fault;
-            document.getElementById('kpi-maint').innerText = maint;
-
-            const badge = document.getElementById('fault-badge');
-            if (fault > 0) {
-                badge.innerText = fault;
-                badge.classList.remove('hidden');
-            } else {
-                badge.classList.add('hidden');
-            }
-        }
-
-        function initAreaFilter() {
-            const areas = [...new Set(devices.map(d => d.area))];
-            const select = document.getElementById('area-filter');
-            select.innerHTML = '<option value="ALL">全部區域</option>';
-            areas.forEach(a => {
-                select.innerHTML += `<option value="${a}">${a}</option>`;
-            });
-        }
-
-        // 時間計算邏輯
-        function formatDuration(ms) {
-            if (!ms || ms < 0) return '00:00:00';
-            const seconds = Math.floor((ms / 1000) % 60);
-            const minutes = Math.floor((ms / (1000 * 60)) % 60);
-            const hours = Math.floor((ms / (1000 * 60 * 60)) % 24);
-            const days = Math.floor(ms / (1000 * 60 * 60 * 24));
-
-            let res = '';
-            if (days > 0) res += `${days}天 `;
-            res += `${String(hours).padStart(2, '0')}小時 `;
-            res += `${String(minutes).padStart(2, '0')}分 `;
-            res += `${String(seconds).padStart(2, '0')}秒`;
-            return res;
-        }
-
-        // 繪製全廠設備卡片
-        function renderAllDevices() {
-            const grid = document.getElementById('device-grid');
-            const selectedArea = document.getElementById('area-filter').value;
-            grid.innerHTML = '';
-
-            devices.filter(d => selectedArea === 'ALL' || d.area === selectedArea).forEach(d => {
-                let statusColor = 'border-emerald-500 bg-slate-900';
-                let badge = '<span class="bg-emerald-950/80 border border-emerald-800 text-emerald-400 text-xs px-2 py-0.5 rounded font-medium">運作中</span>';
-                
-                if (d.status === 'FAULT') {
-                    statusColor = 'border-rose-500 bg-rose-950/20';
-                    badge = '<span class="bg-rose-950/80 border border-rose-800 text-rose-400 text-xs px-2 py-0.5 rounded font-medium flex items-center gap-1.5"><i class="fa-solid fa-circle text-[8px] animate-ping text-rose-500"></i>故障停機</span>';
-                } else if (d.status === 'MAINT') {
-                    statusColor = 'border-amber-500 bg-amber-950/20';
-                    badge = '<span class="bg-amber-950/80 border border-amber-800 text-amber-400 text-xs px-2 py-0.5 rounded font-medium">保養巡檢</span>';
-                }
-
-                const card = document.createElement('div');
-                card.className = `status-card border-t-4 ${statusColor} border-x border-b border-slate-800/80 rounded-lg p-4 shadow-md flex flex-col justify-between space-y-3`;
-                card.innerHTML = `
-                    <div>
-                        <div class="flex justify-between items-start mb-1">
-                            <h4 class="font-bold text-slate-100 text-base">${d.code}</h4>
-                            ${badge}
-                        </div>
-                        <p class="text-xs text-slate-500 mb-2"><i class="fa-solid fa-location-dot mr-1 text-slate-600"></i>${d.area}</p>
-                        
-                        ${d.status === 'FAULT' ? `
-                            <div class="bg-rose-950/50 rounded p-2 text-center my-2 border border-rose-900/60">
-                                <span class="text-xs text-rose-400 block mb-0.5">已停機時間</span>
-                                <span class="timer-display font-mono font-bold text-rose-400 text-sm tracking-wide" data-starttime="${d.startTime}">計算中...</span>
-                            </div>
-                        ` : ''}
-
-                        ${d.reason ? `<p class="text-xs text-slate-400 bg-slate-950/60 p-2 rounded border border-slate-800/60 truncate"><i class="fa-solid fa-info-circle mr-1 text-slate-500"></i>${d.reason}</p>` : ''}
-                    </div>
-
-                    <div class="pt-2.5 border-t border-slate-800/80 flex space-x-2 text-xs">
-                        ${d.status === 'FAULT' ? `
-                            <button onclick="openModal('${d.id}', 'REPAIR')" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white py-1.5 rounded font-medium shadow transition">修復完成</button>
-                        ` : `
-                            <button onclick="openModal('${d.id}', 'FAULT')" class="flex-1 bg-rose-600 hover:bg-rose-500 text-white py-1.5 rounded font-medium shadow transition">報修</button>
-                            <button onclick="openModal('${d.id}', 'MAINT')" class="flex-1 bg-amber-600 hover:bg-amber-500 text-white py-1.5 rounded font-medium shadow transition">巡檢</button>
-                        `}
-                    </div>
-                `;
-                grid.appendChild(card);
-            });
-        }
-
-        // 繪製故障設備頁籤
-        function renderFaultDevices() {
-            const grid = document.getElementById('fault-grid');
-            grid.innerHTML = '';
-            const faultList = devices.filter(d => d.status === 'FAULT');
-
-            if (faultList.length === 0) {
-                grid.innerHTML = '<div class="col-span-full text-center py-16 text-slate-500"><i class="fa-solid fa-circle-check text-5xl text-emerald-500/80 mb-3 block"></i>目前全廠設備運作良好，無故障停機機台。</div>';
-                return;
-            }
-
-            faultList.forEach(d => {
-                const card = document.createElement('div');
-                card.className = 'bg-slate-900 border-2 border-rose-600/80 rounded-xl p-5 shadow-lg flex flex-col justify-between space-y-4';
-                card.innerHTML = `
-                    <div class="space-y-3">
-                        <div class="flex justify-between items-center">
-                            <span class="text-xs font-semibold px-2 py-0.5 bg-rose-950 text-rose-300 border border-rose-800/80 rounded">${d.area}</span>
-                            <span class="text-xs text-slate-500">報修時間：${new Date(d.startTime).toLocaleString()}</span>
-                        </div>
-                        <h3 class="text-xl font-bold text-slate-100">${d.code}</h3>
-                        <div class="bg-rose-950/40 p-3.5 rounded-lg border border-rose-900/80 text-center">
-                            <span class="text-xs text-rose-400 font-semibold block mb-1">當前累計停機時長</span>
-                            <span class="timer-display font-mono text-xl font-bold text-rose-400 tracking-wider" data-starttime="${d.startTime}">計算中...</span>
-                        </div>
-                        <p class="text-sm text-slate-300 bg-slate-950 p-2.5 rounded border border-slate-800"><span class="font-bold text-slate-400">故障原因：</span>${d.reason || '未說明'}</p>
-                    </div>
-                    <button onclick="openModal('${d.id}', 'REPAIR')" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-2 rounded-lg shadow-md transition">
-                        <i class="fa-solid fa-wrench mr-1.5"></i>修復完成結案
-                    </button>
-                `;
-                grid.appendChild(card);
-            });
-        }
-
-        // 即時跳動計時器
-        function updateTimers() {
-            const now = Date.now();
-            document.querySelectorAll('.timer-display').forEach(el => {
-                const startTime = parseInt(el.getAttribute('data-starttime'));
-                if (startTime) {
-                    el.innerText = formatDuration(now - startTime);
-                }
-            });
-        }
-
-        // 彈出視窗開關
-        function openModal(deviceId, actionType) {
-            const device = devices.find(d => d.id === deviceId);
-            document.getElementById('modal-device-id').value = device.id;
-            document.getElementById('modal-action-type').value = actionType;
-            document.getElementById('modal-device-code').value = device.code;
-            document.getElementById('modal-reason').value = '';
-            document.getElementById('modal-operator').value = '';
-
-            const titleEl = document.getElementById('modal-title');
-            const submitBtn = document.getElementById('modal-submit-btn');
-
-            if (actionType === 'FAULT') {
-                titleEl.innerText = '故障報修登記';
-                submitBtn.className = 'px-4 py-2 bg-rose-600 text-white rounded-md text-sm hover:bg-rose-500 transition';
-            } else if (actionType === 'MAINT') {
-                titleEl.innerText = '例行巡檢/保養登記';
-                submitBtn.className = 'px-4 py-2 bg-amber-600 text-white rounded-md text-sm hover:bg-amber-500 transition';
-            } else if (actionType === 'REPAIR') {
-                titleEl.innerText = '維修完工確認';
-                submitBtn.className = 'px-4 py-2 bg-emerald-600 text-white rounded-md text-sm hover:bg-emerald-500 transition';
-            }
-
-            document.getElementById('action-modal').classList.remove('hidden');
-        }
-
-        function closeModal() {
-            document.getElementById('action-modal').classList.add('hidden');
-        }
-
-        // 提交維修/報修/巡檢操作
-        function handleModalSubmit(e) {
-            e.preventDefault();
-            const deviceId = document.getElementById('modal-device-id').value;
-            const actionType = document.getElementById('modal-action-type').value;
-            const reason = document.getElementById('modal-reason').value;
-            const operator = document.getElementById('modal-operator').value;
-            const device = devices.find(d => d.id === deviceId);
-
-            const nowStr = new Date().toISOString();
-
-            if (actionType === 'FAULT') {
-                device.status = 'FAULT';
-                device.startTime = Date.now();
-                device.reason = reason;
-
-                historyLogs.unshift({
-                    id: 'h_' + Date.now(),
-                    code: device.code,
-                    type: '故障報修',
-                    startTime: nowStr,
-                    endTime: '-',
-                    duration: '計時中...',
-                    operator: operator,
-                    reason: reason
-                });
-            } else if (actionType === 'REPAIR') {
-                const durationText = formatDuration(Date.now() - device.startTime);
-                device.status = 'RUNNING';
-                
-                // 更新歷史紀錄中的結案時間
-                const lastLog = historyLogs.find(h => h.code === device.code && h.endTime === '-');
-                if (lastLog) {
-                    lastLog.endTime = nowStr;
-                    lastLog.duration = durationText;
-                    if (reason) lastLog.reason += ` (修復說明: ${reason})`;
-                }
-
-                device.startTime = null;
-                device.reason = '';
-            } else if (actionType === 'MAINT') {
-                historyLogs.unshift({
-                    id: 'h_' + Date.now(),
-                    code: device.code,
-                    type: '例行巡檢',
-                    startTime: nowStr,
-                    endTime: nowStr,
-                    duration: '0分',
-                    operator: operator,
-                    reason: reason || '日常巡檢正常'
-                });
-            }
-
-            saveData();
-            closeModal();
-            renderAllDevices();
-            renderFaultDevices();
-            renderHistoryTable();
-        }
-
-        // 新增設備視窗邏輯
-        function openAddDeviceModal() { document.getElementById('add-device-modal').classList.remove('hidden'); }
-        function closeAddDeviceModal() { document.getElementById('add-device-modal').classList.add('hidden'); }
-        
-        function handleAddDeviceSubmit(e) {
-            e.preventDefault();
-            const code = document.getElementById('new-device-code').value;
-            const area = document.getElementById('new-device-area').value;
-
-            devices.push({
-                id: String(Date.now()),
-                code: code,
-                area: area,
-                status: 'RUNNING',
-                startTime: null,
-                reason: ''
-            });
-
-            saveData();
-            initAreaFilter();
-            renderAllDevices();
-            closeAddDeviceModal();
-        }
-
-        // 履歷報表與 Excel 匯出
-        function renderHistoryTable() {
-            const tbody = document.getElementById('history-table-body');
-            tbody.innerHTML = '';
-
-            // 清除超過 30 天的資料（資料自動歸檔/維護）
-            const thirtyDaysAgo = Date.now() - (30 * 86400000);
-            historyLogs = historyLogs.filter(h => new Date(h.startTime).getTime() > thirtyDaysAgo);
-
-            historyLogs.forEach(h => {
-                const tr = document.createElement('tr');
-                tr.className = 'hover:bg-slate-800/40 border-b border-slate-800/60 transition';
-                tr.innerHTML = `
-                    <td class="px-4 py-3 font-semibold text-slate-200">${h.code}</td>
-                    <td class="px-4 py-3">
-                        <span class="px-2 py-0.5 rounded text-xs ${h.type === '故障報修' ? 'bg-rose-950/80 border border-rose-800 text-rose-400' : 'bg-slate-800 border border-slate-700 text-slate-300'}">${h.type}</span>
-                    </td>
-                    <td class="px-4 py-3 text-xs text-slate-400">${new Date(h.startTime).toLocaleString()}</td>
-                    <td class="px-4 py-3 text-xs text-slate-400">${h.endTime !== '-' ? new Date(h.endTime).toLocaleString() : '<span class="text-rose-400 font-bold">未結案</span>'}</td>
-                    <td class="px-4 py-3 text-xs font-mono font-bold text-slate-200">${h.duration}</td>
-                    <td class="px-4 py-3 text-xs text-slate-300">${h.operator}: ${h.reason}</td>
-                `;
-                tbody.appendChild(tr);
-            });
-        }
-
-        function exportToExcel() {
-            const exportData = historyLogs.map(h => ({
-                '機台編號': h.code,
-                '事件類型': h.type,
-                '開始/報修時間': new Date(h.startTime).toLocaleString(),
-                '結束/修復時間': h.endTime !== '-' ? new Date(h.endTime).toLocaleString() : '處理中',
-                '總停機時長': h.duration,
-                '紀錄人員': h.operator,
-                '備註/故障原因': h.reason
-            }));
-
-            const worksheet = XLSX.utils.json_to_sheet(exportData);
-            const workbook = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(workbook, worksheet, "設備停機與巡檢履歷");
-            XLSX.writeFile(workbook, `設備履歷報表_${new Date().toISOString().split('T')[0]}.xlsx`);
-        }
-    </script>
+      // 監聽螢幕大小切換時自動重新渲染清單
+      window.addEventListener("resize", () => renderList());
+    }
+  </script>
 </body>
 </html>
