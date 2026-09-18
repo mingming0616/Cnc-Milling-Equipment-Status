@@ -878,11 +878,16 @@
           mGroup.appendChild(mRect);
           mGroup.appendChild(foreignObj);
           bGroup.appendChild(mGroup);
-
-          updateSvgMachineDisplay(id);
         });
 
         group.appendChild(bGroup);
+      });
+
+      // 修正：等待所有 SVG 區塊皆加入 DOM 樹後，統一觸發即時狀態渲染
+      config.blocks.forEach(block => {
+        block.machines.forEach(id => {
+          updateSvgMachineDisplay(id);
+        });
       });
     }
 
