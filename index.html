@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>旭申國際科技 銑床設備即時狀態看板 (分區平面圖版)</title>
+  <title>旭申國際科技 銑床設備即時狀態看板 (全廠區平面圖版 v2.00)</title>
   <style>
     /* ===== 全局與基礎樣式 ===== */
     * {
@@ -80,7 +80,7 @@
       box-shadow: 0 2px 4px rgba(2, 132, 199, 0.4);
     }
 
-    /* ===== 數據看板 ===== */
+    /* ===== 全廠數據看板 ===== */
     #dashboard {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
@@ -130,6 +130,47 @@
       flex-direction: column;
     }
 
+    /* 廠區選擇器 */
+    .floor-selector {
+      display: flex;
+      gap: 0.4rem;
+      margin-bottom: 0.6rem;
+      overflow-x: auto;
+      padding-bottom: 0.2rem;
+    }
+    .floor-btn {
+      padding: 0.5rem 0.8rem;
+      background-color: #1e293b;
+      color: #94a3b8;
+      border: 1px solid #475569;
+      border-radius: 0.4rem;
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .floor-btn.active {
+      background-color: #38bdf8;
+      color: #0f172a;
+      border-color: #38bdf8;
+      font-weight: bold;
+    }
+
+    /* 當前分區即時稼動率卡片 */
+    .area-summary-bar {
+      background-color: #1e293b;
+      border: 1px solid #38bdf8;
+      border-radius: 0.5rem;
+      padding: 0.5rem 0.8rem;
+      margin-bottom: 0.6rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.85rem;
+    }
+    .area-summary-title { font-weight: bold; color: #38bdf8; }
+    .area-summary-stats { display: flex; gap: 0.8rem; }
+
     /* --- 平面圖 Layout --- */
     #mapContainer {
       width: 100%;
@@ -141,7 +182,7 @@
     }
     #svgWrapper svg {
       width: 100%;
-      min-width: 1400px;
+      min-width: 1200px;
       height: auto;
       display: block;
     }
@@ -154,7 +195,6 @@
       to { filter: drop-shadow(0 0 8px #ef4444); }
     }
 
-    /* 地圖節點內部 HTML 樣式 */
     .node-container {
       width: 100%;
       height: 100%;
@@ -170,26 +210,26 @@
       pointer-events: none;
     }
     .node-id {
-      font-size: 17px;
+      font-size: 15px;
       font-weight: 700;
       color: #ffffff;
       text-shadow: 0 1px 2px rgba(0,0,0,0.8);
     }
     .node-pn {
-      font-size: 11px;
+      font-size: 10px;
       color: #fef08a;
       font-weight: 600;
       word-break: break-all;
       margin-top: 1px;
     }
     .node-reason {
-      font-size: 10px;
+      font-size: 9px;
       color: #fca5a5;
       font-weight: bold;
       word-break: break-all;
-      margin-top: 2px;
+      margin-top: 1px;
       background-color: rgba(0, 0, 0, 0.6);
-      padding: 1px 3px;
+      padding: 1px 2px;
       border-radius: 3px;
       border: 1px solid rgba(239, 68, 68, 0.4);
       width: 100%;
@@ -222,23 +262,9 @@
       font-size: 0.9rem;
       text-align: center;
     }
-    .btn-secondary {
-      padding: 0.5rem 0.8rem;
-      background-color: #334155;
-      color: #38bdf8;
-      border: 1px solid #0284c7;
-      border-radius: 0.4rem;
-      cursor: pointer;
-      font-weight: 600;
-      font-size: 0.85rem;
-    }
 
     /* --- 手機卡片清單 --- */
-    .card-list {
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
-    }
+    .card-list { display: flex; flex-direction: column; gap: 0.5rem; }
     .mobile-card {
       background-color: #1e293b;
       border: 1px solid #334155;
@@ -257,22 +283,9 @@
       border-bottom: 1px solid #334155;
       padding-bottom: 0.35rem;
     }
-    .card-title {
-      font-size: 1rem;
-      font-weight: bold;
-      color: #38bdf8;
-    }
-    .card-body-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-size: 0.82rem;
-      color: #cbd5e1;
-    }
-    .history-card-actions {
-      display: flex;
-      gap: 0.4rem;
-    }
+    .card-title { font-size: 1rem; font-weight: bold; color: #38bdf8; }
+    .card-body-row { display: flex; justify-content: space-between; align-items: center; font-size: 0.82rem; color: #cbd5e1; }
+    
     .btn-mini-danger {
       padding: 0.2rem 0.4rem;
       background-color: #991b1b;
@@ -284,13 +297,7 @@
     }
 
     /* 狀態標籤樣式 */
-    .status-badge {
-      padding: 0.2rem 0.5rem;
-      border-radius: 1rem;
-      font-size: 0.72rem;
-      font-weight: bold;
-      display: inline-block;
-    }
+    .status-badge { padding: 0.2rem 0.5rem; border-radius: 1rem; font-size: 0.72rem; font-weight: bold; display: inline-block; }
     .badge-running { background-color: #166534; color: #4ade80; }
     .badge-setup { background-color: #1e3a8a; color: #93c5fd; }
     .badge-fault { background-color: #991b1b; color: #fca5a5; }
@@ -324,15 +331,7 @@
       border-top: 3px solid #38bdf8;
       position: relative;
     }
-    .close-btn {
-      position: absolute;
-      top: 0.8rem;
-      right: 1rem;
-      font-size: 1.6rem;
-      color: #94a3b8;
-      cursor: pointer;
-      padding: 0.2rem 0.5rem;
-    }
+    .close-btn { position: absolute; top: 0.8rem; right: 1rem; font-size: 1.6rem; color: #94a3b8; cursor: pointer; padding: 0.2rem 0.5rem; }
     .modal h2 { font-size: 1.1rem; color: #38bdf8; margin-bottom: 0.8rem; padding-right: 2rem; }
     .form-group { margin-bottom: 0.7rem; display: flex; flex-direction: column; gap: 0.3rem; }
     .form-group label { font-size: 0.82rem; color: #cbd5e1; }
@@ -344,11 +343,7 @@
       color: #fff;
       font-size: 16px;
     }
-    .form-group input[readonly] {
-      background-color: #334155;
-      color: #94a3b8;
-      cursor: not-allowed;
-    }
+    .form-group input[readonly] { background-color: #334155; color: #94a3b8; cursor: not-allowed; }
     .btn-submit {
       width: 100%;
       padding: 0.85rem;
@@ -389,7 +384,7 @@
     </div>
   </header>
 
-  <!-- 頂部即時數據看板 -->
+  <!-- 全廠數據總覽看板 -->
   <section id="dashboard">
     <div class="card running">
       <span class="count" id="countRunning">0</span>
@@ -409,7 +404,7 @@
     </div>
     <div class="card borrowed">
       <span class="count" id="countBorrowed">0</span>
-      <span class="label">🟣 借出(生技)</span>
+      <span class="label">🟣 借出</span>
     </div>
     <div class="card idle">
       <span class="count" id="countIdle">0</span>
@@ -417,17 +412,36 @@
     </div>
     <div class="card rate">
       <span class="count" id="utilizationRate">0%</span>
-      <span class="label">📊 稼動率</span>
+      <span class="label">📊 全廠稼動</span>
     </div>
   </section>
 
   <!-- 分頁 1: 分區地圖平面圖 -->
   <main id="mapTab" class="tab-content active">
+    <!-- 廠區選擇列 -->
+    <div class="floor-selector">
+      <button class="floor-btn" onclick="switchFloor('1F_1')" id="btnFloor_1F_1">1廠 1F(測試中)</button>
+      <button class="floor-btn" onclick="switchFloor('1F_2')" id="btnFloor_1F_2">1廠 2F(測試中)</button>
+      <button class="floor-btn" onclick="switchFloor('2F_1')" id="btnFloor_2F_1">2廠 1F(測試中)</button>
+      <button class="floor-btn active" onclick="switchFloor('2F_2')" id="btnFloor_2F_2">2廠 2F</button>
+      <button class="floor-btn" onclick="switchFloor('3F_1')" id="btnFloor_3F_1">3廠 (青年廠)(測試中)</button>
+    </div>
+
+    <!-- 當前區域即時統計卡片 -->
+    <div class="area-summary-bar">
+      <span class="area-summary-title" id="currentAreaTitle">📍 2廠 2F 銑床區</span>
+      <div class="area-summary-stats">
+        <span>總台數: <strong id="areaTotalCount">0</strong></span>
+        <span>運行中: <span style="color:#22c55e; font-weight:bold;" id="areaRunningCount">0</span></span>
+        <span>分區稼動率: <strong style="color:#38bdf8;" id="areaUtilizationRate">0%</strong></span>
+      </div>
+    </div>
+
     <div id="mapContainer">
       <div id="svgWrapper">
-        <svg viewBox="0 0 2150 1600" xmlns="http://www.w3.org/2000/svg">
+        <svg id="mainSvg" viewBox="0 0 2150 1600" xmlns="http://www.w3.org/2000/svg">
           <rect x="10" y="10" width="2130" height="1580" fill="#1e293b" stroke="#475569" stroke-width="3" rx="10"/>
-          <text x="1075" y="30" fill="#38bdf8" font-size="18" font-weight="bold" text-anchor="middle">2廠 2F 銑床區平面圖 </text>
+          <text id="svgTitle" x="1075" y="30" fill="#38bdf8" font-size="18" font-weight="bold" text-anchor="middle">2廠 2F 銑床區平面圖</text>
           <g id="blocksGroup"></g>
         </svg>
       </div>
@@ -529,18 +543,18 @@
       getFirestore, collection, doc, setDoc, addDoc, deleteDoc, onSnapshot, query, where, orderBy, limit, serverTimestamp 
     } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-    // ===== 維護人員帳號與密碼對照清單 =====
     const MAINTENANCE_USERS = {
-      "劉德康": "09043", "何敬豐": "08020", "陳明秀": "08003", "李意明": "22004",
+      "劉德康": "09043", "何敬豐": "08020", "陳明秀": "08003", "李意明": "88822004",
       "賴頎仁": "17036", "邱柏雄": "12024", "姜祺祥": "08013", "江明旭": "12101",
       "林昊騰": "13092", "黎文杰": "15048", "林秉健": "10171", "李國偉": "10149",
-      "阮玉碧": "11049", "黎芳瑜": "11054"
+      "阮玉碧": "11049", "黎芳瑜": "11054", "葉兆嵐": "21033", "李文傑": "19007",
+      "唐婉綺": "13012"
     };
 
     let currentUser = localStorage.getItem("maintainerUser") || null;
-    let historyUnsubscribe = null; // 用於切換履歷監聽
+    let historyUnsubscribe = null;
+    let currentFloor = "2F_2"; // 預設為 2廠 2F
 
-    // 1. Firebase 設定
     const firebaseConfig = {
       apiKey: "AIzaSyBLe8_cwgGolIQVJyVl7w_Xrf1Bu4LNPnk",
       authDomain: "cnc-milling-equipment-status.firebaseapp.com",
@@ -554,34 +568,114 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
-    // 2. 設備基礎數據清單
-    const baseEquipmentList = [{"id": "M02", "model": "TR-45L", "brand": "森合"}, {"id": "M38", "model": "TR-60A", "brand": "森合"}, {"id": "M47", "model": "TR-60A", "brand": "森合"}, {"id": "M48", "model": "TR-60A", "brand": "森合"}, {"id": "M58", "model": "TR-60A", "brand": "森合"}, {"id": "M73", "model": "TR-60A", "brand": "森合"}, {"id": "M121", "model": "TR-60A", "brand": "森合"}, {"id": "M122", "model": "TR-60A", "brand": "森合"}, {"id": "M123", "model": "TR-60A", "brand": "森合"}, {"id": "M126", "model": "TR-45E", "brand": "森合"}, {"id": "M144", "model": "TR-70A", "brand": "森合"}, {"id": "M153", "model": "TC-S2DN", "brand": "Brother"}, {"id": "M154", "model": "TC-S2DN", "brand": "Brother"}, {"id": "M155", "model": "TC-S2DN", "brand": "Brother"}, {"id": "M156", "model": "TC-S2DN", "brand": "Brother"}, {"id": "M157", "model": "TC-S2DN", "brand": "Brother"}, {"id": "M158", "model": "TC-S2DN", "brand": "Brother"}, {"id": "M159", "model": "TC-S2DN", "brand": "Brother"}, {"id": "M160", "model": "TC-S2DN", "brand": "Brother"}, {"id": "M161", "model": "TC-S2DN", "brand": "Brother"}, {"id": "M163", "model": "TC-S2DN-O", "brand": "Brother"}, {"id": "M164", "model": "TC-S2DN-O", "brand": "Brother"}, {"id": "M165", "model": "TC-S2DN-O", "brand": "Brother"}, {"id": "M166", "model": "TC-S2DN-O", "brand": "Brother"}, {"id": "M167", "model": "TC-S2DN-O", "brand": "Brother"}, {"id": "M171", "model": "TC-R2B", "brand": "Brother"}, {"id": "M173", "model": "TC-R2B", "brand": "Brother"}, {"id": "M175", "model": "TC-R2B", "brand": "Brother"}, {"id": "M176", "model": "TC-R2B", "brand": "Brother"}, {"id": "M177", "model": "TC-R2B", "brand": "Brother"}, {"id": "M178", "model": "TC-R2B", "brand": "Brother"}, {"id": "M180", "model": "TC-R2B", "brand": "Brother"}, {"id": "M181", "model": "TC-R2B", "brand": "Brother"}, {"id": "M182", "model": "TC-R2B", "brand": "Brother"}, {"id": "M183", "model": "TC-R2B", "brand": "Brother"}, {"id": "M184", "model": "TC-R2B", "brand": "Brother"}, {"id": "M188", "model": "R450X1", "brand": "Brother"}, {"id": "M192", "model": "R450X1", "brand": "Brother"}, {"id": "M193", "model": "R450X1", "brand": "Brother"}, {"id": "M194", "model": "R450X1", "brand": "Brother"}, {"id": "M195", "model": "R450X1", "brand": "Brother"}, {"id": "M196", "model": "R450X1", "brand": "Brother"}, {"id": "M197", "model": "R450X1", "brand": "Brother"}, {"id": "M198", "model": "R450X1", "brand": "Brother"}, {"id": "M199", "model": "R450X1", "brand": "Brother"}, {"id": "M200", "model": "R450X1", "brand": "Brother"}, {"id": "M201", "model": "R450X1", "brand": "Brother"}, {"id": "M202", "model": "R450X1", "brand": "Brother"}, {"id": "M203", "model": "R450X1", "brand": "Brother"}, {"id": "M204", "model": "R450X1", "brand": "Brother"}, {"id": "M205", "model": "R450X1", "brand": "Brother"}, {"id": "M206", "model": "R450X1", "brand": "Brother"}, {"id": "M207", "model": "R450X1", "brand": "Brother"}, {"id": "M208", "model": "R450X1", "brand": "Brother"}, {"id": "M209", "model": "R450X1", "brand": "Brother"}, {"id": "M210", "model": "R450X1", "brand": "Brother"}, {"id": "M211", "model": "R450X1", "brand": "Brother"}, {"id": "M212", "model": "R450X1", "brand": "Brother"}, {"id": "M213", "model": "R450X1", "brand": "Brother"}, {"id": "M214", "model": "R450X1", "brand": "Brother"}, {"id": "M215", "model": "R450X1", "brand": "Brother"}, {"id": "M216", "model": "R450X1", "brand": "Brother"}, {"id": "M217", "model": "R450X1", "brand": "Brother"}, {"id": "M218", "model": "S700X1", "brand": "Brother"}, {"id": "M219", "model": "S700X1", "brand": "Brother"}, {"id": "M220", "model": "S700X1", "brand": "Brother"}, {"id": "M221", "model": "S700X1", "brand": "Brother"}, {"id": "M222", "model": "S700X1", "brand": "Brother"}, {"id": "M223", "model": "S700X1", "brand": "Brother"}, {"id": "M224", "model": "S700X1", "brand": "Brother"}, {"id": "M225", "model": "S700X1", "brand": "Brother"}, {"id": "M226", "model": "S700X1", "brand": "Brother"}, {"id": "M227", "model": "S700X1", "brand": "Brother"}, {"id": "M228", "model": "S700X1", "brand": "Brother"}, {"id": "M229", "model": "S700X1", "brand": "Brother"}, {"id": "M230", "model": "S700X1", "brand": "Brother"}, {"id": "M234", "model": "S700X1", "brand": "Brother"}, {"id": "M237", "model": "S700X1", "brand": "Brother"}, {"id": "M251", "model": "S500X1", "brand": "Brother"}, {"id": "M252", "model": "S500X1", "brand": "Brother"}, {"id": "M253", "model": "S500X1", "brand": "Brother"}, {"id": "M254", "model": "S500X1", "brand": "Brother"}, {"id": "M255", "model": "S500X1", "brand": "Brother"}, {"id": "M256", "model": "R450X1", "brand": "Brother"}, {"id": "M257", "model": "S700X2", "brand": "Brother"}, {"id": "M258", "model": "S700X2", "brand": "Brother"}, {"id": "M259", "model": "S700X2", "brand": "Brother"}, {"id": "M260", "model": "S700X2", "brand": "Brother"}, {"id": "M261", "model": "S700X2", "brand": "Brother"}, {"id": "M262", "model": "S700X2", "brand": "Brother"}, {"id": "M266", "model": "R450X2", "brand": "Brother"}, {"id": "M267", "model": "R450X2", "brand": "Brother"}, {"id": "M268", "model": "R450X2", "brand": "Brother"}, {"id": "M269", "model": "R450X2", "brand": "Brother"}, {"id": "M270", "model": "S500X2", "brand": "Brother"}, {"id": "M271", "model": "S500X2", "brand": "Brother"}, {"id": "M272", "model": "S500X2", "brand": "Brother"}, {"id": "M273", "model": "S500X2", "brand": "Brother"}, {"id": "M274", "model": "S500X2", "brand": "Brother"}, {"id": "M276", "model": "U500XD1 RD", "brand": "Brother"}, {"id": "M277", "model": "U500XD1 RD", "brand": "Brother"}, {"id": "M278", "model": "U500XD1 RD", "brand": "Brother"}, {"id": "M279", "model": "U500XD1 RD", "brand": "Brother"}, {"id": "M280", "model": "S500XD1", "brand": "Brother"}, {"id": "M281", "model": "S500XD1", "brand": "Brother"}, {"id": "M282", "model": "S500XD1", "brand": "Brother"}, {"id": "M283", "model": "S500XD1", "brand": "Brother"}, {"id": "M284", "model": "S500XD1", "brand": "Brother"}, {"id": "M285", "model": "S500XD1", "brand": "Brother"}, {"id": "M286", "model": "S500XD1", "brand": "Brother"}, {"id": "M287", "model": "S500XD1", "brand": "Brother"}, {"id": "M288", "model": "S500X2", "brand": "Brother"}, {"id": "M289", "model": "S500X2", "brand": "Brother"}, {"id": "M290", "model": "S500X2", "brand": "Brother"}, {"id": "M291", "model": "S500X2", "brand": "Brother"}, {"id": "M292", "model": "S500X2", "brand": "Brother"}, {"id": "M293", "model": "S500X2", "brand": "Brother"}, {"id": "M294", "model": "S500X2", "brand": "Brother"}, {"id": "M295", "model": "S500X2", "brand": "Brother"}, {"id": "M296", "model": "S500X2", "brand": "Brother"}, {"id": "M297", "model": "S500X2", "brand": "Brother"}, {"id": "M298", "model": "S500X2", "brand": "Brother"}, {"id": "M299", "model": "S500X2", "brand": "Brother"}, {"id": "M300", "model": "S500X2", "brand": "Brother"}, {"id": "M301", "model": "S500X2", "brand": "Brother"}, {"id": "M302", "model": "S500X2", "brand": "Brother"}, {"id": "M303", "model": "S500X2", "brand": "Brother"}, {"id": "M304", "model": "S500X2", "brand": "Brother"}, {"id": "M305", "model": "S500X2", "brand": "Brother"}, {"id": "M306", "model": "S500X2", "brand": "Brother"}, {"id": "M307", "model": "S500XD1-5AX", "brand": "Brother"}, {"id": "M308", "model": "S500XD1-5AX", "brand": "Brother"}, {"id": "M309", "model": "S500XD1-5AX", "brand": "Brother"}, {"id": "M310", "model": "S500XD1-5AX", "brand": "Brother"}];
-
-    // 3. 分區與間距設定
-    const blocksConfig = [
-      { title: "左第1排", layout: "horizontal", x: 30, y: 40, machines: ["M126", "M02", "M257", "M234", "M165", "M163", "M284", "M283", "M282", "M281", "M280"] },
-      { title: "左第2排", layout: "horizontal", x: 30, y: 178, machines: ["M262", "M226", "M260", "M279", "M278", "M277", "M276", "M287", "M286", "M285"] },
-      { title: "左第3排", layout: "horizontal", x: 30, y: 278, machines: ["M224", "M258", "M219", "M218", "M299", "M300", "M273", "M301", "M302", "M306"] },
-      { title: "右第3排", layout: "horizontal", x: 1380, y: 278, machines: ["M303", "M304", "M305"] },
-      { title: "左第4排", layout: "horizontal", x: 30, y: 416, machines: ["M261", "M237", "M297", "M298"] },
-      { title: "中第4排", layout: "horizontal", x: 710, y: 416, machines: ["M307", "M308", "M309", "M310"] },
-      { title: "左第5排", layout: "horizontal", x: 30, y: 516, machines: ["M292", "M293", "M294", "M295", "M296"] },
-      { title: "左第6排", layout: "horizontal", x: 30, y: 654, machines: ["M288", "M289", "M290", "M291"] },
-      { title: "左第7排", layout: "horizontal", x: 30, y: 792, machines: ["M202", "M203", "M204", "M205", "M206"] },
-      { title: "中第7排", layout: "horizontal", x: 710, y: 792, machines: ["M212", "M215", "M214", "M207", "M193"] },
-      { title: "左第8排", layout: "horizontal", x: 30, y: 892, machines: ["M199", "M198", "M254", "M255"] },
-      { title: "中第8排", layout: "horizontal", x: 710, y: 892, machines: ["M192", "M194", "M195", "M182", "M197"] },
-      { title: "左第9排", layout: "horizontal", x: 30, y: 1030, machines: ["M201", "M217", "M184", "M196"] },
-      { title: "中第9排", layout: "horizontal", x: 710, y: 1030, machines: ["M216", "M208", "M209", "M210", "M211"] },
-      { title: "左第10排", layout: "horizontal", x: 30, y: 1130, machines: ["M175", "M176", "M177", "M178", "M173", "M180"] },
-      { title: "中第10排", layout: "horizontal", x: 710, y: 1130, machines: ["M181", "M171", "M256", "M200", "M213", "M188"] },
-      { title: "中間最下-左行", layout: "vertical", x: 830, y: 1270, machines: ["M259", "M227", "M228"] },
-      { title: "中間最下-右行", layout: "vertical", x: 1020, y: 1270, machines: ["M167", "M164", "M166"] },
-      { title: "右第4行", layout: "vertical", x: 1370, y: 416, machines: ["M154", "M155", "M156", "M157", "M158", "M159", "M160", "M161", "M153", "M251", "M271", "M272", "M274"] },
-      { title: "右第3行", layout: "vertical", x: 1545, y: 416, machines: ["M252", "M253", "M270", "M229", "M225", "M220", "M230", "M221", "M222", "M223"] },
-      { title: "右第2行", layout: "vertical", x: 1695, y: 416, machines: ["M58", "M121", "M122", "M123", "M38", "M47", "M144", "M48", "M73"] },
-      { title: "最右1行", layout: "vertical", x: 1870, y: 680, machines: ["M266", "M267", "M268", "M269", "M183"] }
+    // 擴充全廠設備清單 (含 1廠、2廠、3廠所有機台)
+    const baseEquipmentList = [
+      // --- 1廠 1F ---
+      {"id": "M169", "model": "TC-R2B", "brand": "Brother"},
+      // --- 1廠 2F ---
+      {"id": "M146", "model": "TR-70A", "brand": "森合"}, {"id": "M145", "model": "TR-70A", "brand": "森合"}, {"id": "M75", "model": "TR-60A", "brand": "森合"}, {"id": "M76", "model": "TR-60A", "brand": "森合"}, {"id": "M77", "model": "TR-60A", "brand": "森合"}, {"id": "M79", "model": "TR-60A", "brand": "森合"},
+      {"id": "M118", "model": "TR-60A", "brand": "森合"}, {"id": "M74", "model": "TR-60A", "brand": "森合"}, {"id": "M78", "model": "TR-60A", "brand": "森合"}, {"id": "M98", "model": "TR-45L", "brand": "森合"}, {"id": "M138", "model": "TR-60A", "brand": "森合"}, {"id": "M120", "model": "TR-60A", "brand": "森合"},
+      {"id": "M119", "model": "TR-60A", "brand": "森合"}, {"id": "M09", "model": "TR-45L", "brand": "森合"}, {"id": "M99", "model": "TR-45L", "brand": "森合"}, {"id": "M80", "model": "TR-60A", "brand": "森合"}, {"id": "M133", "model": "TR-60A", "brand": "森合"}, {"id": "M139", "model": "TR-60A", "brand": "森合"},
+      {"id": "M127", "model": "TR-60A", "brand": "森合"}, {"id": "M128", "model": "TR-60A", "brand": "森合"}, {"id": "M129", "model": "TR-60A", "brand": "森合"}, {"id": "M143", "model": "TR-70A", "brand": "森合"}, {"id": "M132", "model": "TR-60A", "brand": "森合"},
+      {"id": "M125", "model": "TR-60A", "brand": "森合"}, {"id": "M55", "model": "TR-703", "brand": "森合"}, {"id": "M124", "model": "TR-60A", "brand": "森合"}, {"id": "M130", "model": "TR-60A", "brand": "森合"}, {"id": "M131", "model": "TR-60A", "brand": "森合"}, {"id": "M83", "model": "TR-60A", "brand": "森合"}, {"id": "M72", "model": "TR-60A", "brand": "森合"},
+      // --- 2廠 1F ---
+      {"id": "M187", "model": "TC-R2B", "brand": "Brother"}, {"id": "M186", "model": "TC-R2B", "brand": "Brother"}, {"id": "M185", "model": "TC-R2B", "brand": "Brother"},
+      {"id": "M191", "model": "R450X1", "brand": "Brother"}, {"id": "M168", "model": "TC-R2B", "brand": "Brother"}, {"id": "M172", "model": "TC-R2B", "brand": "Brother"},
+      {"id": "M170", "model": "TC-R2B", "brand": "Brother"}, {"id": "M174", "model": "TC-R2B", "brand": "Brother"},
+      // --- 3廠 (青年廠) ---
+      {"id": "M109", "model": "A+1020", "brand": "亞崴"}, {"id": "M137", "model": "TR-60A", "brand": "森合"}, {"id": "M135", "model": "TR-60A", "brand": "森合"}, {"id": "M53", "model": "CV-600", "brand": "麗馳"}, {"id": "M52", "model": "CV-600", "brand": "麗馳"}, {"id": "M51", "model": "CV-800", "brand": "麗馳"}, {"id": "M57", "model": "CV-800", "brand": "麗馳"}, {"id": "M62", "model": "CV-800", "brand": "麗馳"},
+      {"id": "M140", "model": "Av-1000", "brand": "亞崴"}, {"id": "M136", "model": "TR-60A", "brand": "森合"}, {"id": "M134", "model": "TR-60A", "brand": "森合"}, {"id": "M54", "model": "CV-600", "brand": "麗馳"}, {"id": "M69", "model": "CV-600", "brand": "麗馳"}, {"id": "M44", "model": "CV-800", "brand": "麗馳"}, {"id": "M61", "model": "CV-800", "brand": "麗馳"}, {"id": "M63", "model": "CV-800", "brand": "麗馳"},
+      {"id": "M150", "model": "DV-800", "brand": "麗馳"}, {"id": "M151", "model": "DV-800", "brand": "麗馳"}, {"id": "M152", "model": "DV-800", "brand": "麗馳"}, {"id": "M60", "model": "CV-800", "brand": "麗馳"}, {"id": "M46", "model": "CV-800", "brand": "麗馳"}, {"id": "M56", "model": "CV-800", "brand": "麗馳"},
+      // --- 2廠 2F 原有設備 ---
+      {"id": "M02", "model": "TR-45L", "brand": "森合"}, {"id": "M38", "model": "TR-60A", "brand": "森合"}, {"id": "M47", "model": "TR-60A", "brand": "森合"}, {"id": "M48", "model": "TR-60A", "brand": "森合"}, {"id": "M58", "model": "TR-60A", "brand": "森合"}, {"id": "M73", "model": "TR-60A", "brand": "森合"}, {"id": "M121", "model": "TR-60A", "brand": "森合"}, {"id": "M122", "model": "TR-60A", "brand": "森合"}, {"id": "M123", "model": "TR-60A", "brand": "森合"}, {"id": "M126", "model": "TR-45E", "brand": "森合"}, {"id": "M144", "model": "TR-70A", "brand": "森合"}, {"id": "M153", "model": "TC-S2DN", "brand": "Brother"}, {"id": "M154", "model": "TC-S2DN", "brand": "Brother"}, {"id": "M155", "model": "TC-S2DN", "brand": "Brother"}, {"id": "M156", "model": "TC-S2DN", "brand": "Brother"}, {"id": "M157", "model": "TC-S2DN", "brand": "Brother"}, {"id": "M158", "model": "TC-S2DN", "brand": "Brother"}, {"id": "M159", "model": "TC-S2DN", "brand": "Brother"}, {"id": "M160", "model": "TC-S2DN", "brand": "Brother"}, {"id": "M161", "model": "TC-S2DN", "brand": "Brother"}, {"id": "M163", "model": "TC-S2DN-O", "brand": "Brother"}, {"id": "M164", "model": "TC-S2DN-O", "brand": "Brother"}, {"id": "M165", "model": "TC-S2DN-O", "brand": "Brother"}, {"id": "M166", "model": "TC-S2DN-O", "brand": "Brother"}, {"id": "M167", "model": "TC-S2DN-O", "brand": "Brother"}, {"id": "M171", "model": "TC-R2B", "brand": "Brother"}, {"id": "M173", "model": "TC-R2B", "brand": "Brother"}, {"id": "M175", "model": "TC-R2B", "brand": "Brother"}, {"id": "M176", "model": "TC-R2B", "brand": "Brother"}, {"id": "M177", "model": "TC-R2B", "brand": "Brother"}, {"id": "M178", "model": "TC-R2B", "brand": "Brother"}, {"id": "M180", "model": "TC-R2B", "brand": "Brother"}, {"id": "M181", "model": "TC-R2B", "brand": "Brother"}, {"id": "M182", "model": "TC-R2B", "brand": "Brother"}, {"id": "M183", "model": "TC-R2B", "brand": "Brother"}, {"id": "M184", "model": "TC-R2B", "brand": "Brother"}, {"id": "M188", "model": "R450X1", "brand": "Brother"}, {"id": "M192", "model": "R450X1", "brand": "Brother"}, {"id": "M193", "model": "R450X1", "brand": "Brother"}, {"id": "M194", "model": "R450X1", "brand": "Brother"}, {"id": "M195", "model": "R450X1", "brand": "Brother"}, {"id": "M196", "model": "R450X1", "brand": "Brother"}, {"id": "M197", "model": "R450X1", "brand": "Brother"}, {"id": "M198", "model": "R450X1", "brand": "Brother"}, {"id": "M199", "model": "R450X1", "brand": "Brother"}, {"id": "M200", "model": "R450X1", "brand": "Brother"}, {"id": "M201", "model": "R450X1", "brand": "Brother"}, {"id": "M202", "model": "R450X1", "brand": "Brother"}, {"id": "M203", "model": "R450X1", "brand": "Brother"}, {"id": "M204", "model": "R450X1", "brand": "Brother"}, {"id": "M205", "model": "R450X1", "brand": "Brother"}, {"id": "M206", "model": "R450X1", "brand": "Brother"}, {"id": "M207", "model": "R450X1", "brand": "Brother"}, {"id": "M208", "model": "R450X1", "brand": "Brother"}, {"id": "M209", "model": "R450X1", "brand": "Brother"}, {"id": "M210", "model": "R450X1", "brand": "Brother"}, {"id": "M211", "model": "R450X1", "brand": "Brother"}, {"id": "M212", "model": "R450X1", "brand": "Brother"}, {"id": "M213", "model": "R450X1", "brand": "Brother"}, {"id": "M214", "model": "R450X1", "brand": "Brother"}, {"id": "M215", "model": "R450X1", "brand": "Brother"}, {"id": "M216", "model": "R450X1", "brand": "Brother"}, {"id": "M217", "model": "R450X1", "brand": "Brother"}, {"id": "M218", "model": "S700X1", "brand": "Brother"}, {"id": "M219", "model": "S700X1", "brand": "Brother"}, {"id": "M220", "model": "S700X1", "brand": "Brother"}, {"id": "M221", "model": "S700X1", "brand": "Brother"}, {"id": "M222", "model": "S700X1", "brand": "Brother"}, {"id": "M223", "model": "S700X1", "brand": "Brother"}, {"id": "M224", "model": "S700X1", "brand": "Brother"}, {"id": "M225", "model": "S700X1", "brand": "Brother"}, {"id": "M226", "model": "S700X1", "brand": "Brother"}, {"id": "M227", "model": "S700X1", "brand": "Brother"}, {"id": "M228", "model": "S700X1", "brand": "Brother"}, {"id": "M229", "model": "S700X1", "brand": "Brother"}, {"id": "M230", "model": "S700X1", "brand": "Brother"}, {"id": "M234", "model": "S700X1", "brand": "Brother"}, {"id": "M237", "model": "S700X1", "brand": "Brother"}, {"id": "M251", "model": "S500X1", "brand": "Brother"}, {"id": "M252", "model": "S500X1", "brand": "Brother"}, {"id": "M253", "model": "S500X1", "brand": "Brother"}, {"id": "M254", "model": "S500X1", "brand": "Brother"}, {"id": "M255", "model": "S500X1", "brand": "Brother"}, {"id": "M256", "model": "R450X1", "brand": "Brother"}, {"id": "M257", "model": "S700X2", "brand": "Brother"}, {"id": "M258", "model": "S700X2", "brand": "Brother"}, {"id": "M259", "model": "S700X2", "brand": "Brother"}, {"id": "M260", "model": "S700X2", "brand": "Brother"}, {"id": "M261", "model": "S700X2", "brand": "Brother"}, {"id": "M262", "model": "S700X2", "brand": "Brother"}, {"id": "M266", "model": "R450X2", "brand": "Brother"}, {"id": "M267", "model": "R450X2", "brand": "Brother"}, {"id": "M268", "model": "R450X2", "brand": "Brother"}, {"id": "M269", "model": "R450X2", "brand": "Brother"}, {"id": "M270", "model": "S500X2", "brand": "Brother"}, {"id": "M271", "model": "S500X2", "brand": "Brother"}, {"id": "M272", "model": "S500X2", "brand": "Brother"}, {"id": "M273", "model": "S500X2", "brand": "Brother"}, {"id": "M274", "model": "S500X2", "brand": "Brother"}, {"id": "M276", "model": "U500XD1 RD", "brand": "Brother"}, {"id": "M277", "model": "U500XD1 RD", "brand": "Brother"}, {"id": "M278", "model": "U500XD1 RD", "brand": "Brother"}, {"id": "M279", "model": "U500XD1 RD", "brand": "Brother"}, {"id": "M280", "model": "S500XD1", "brand": "Brother"}, {"id": "M281", "model": "S500XD1", "brand": "Brother"}, {"id": "M282", "model": "S500XD1", "brand": "Brother"}, {"id": "M283", "model": "S500XD1", "brand": "Brother"}, {"id": "M284", "model": "S500XD1", "brand": "Brother"}, {"id": "M285", "model": "S500XD1", "brand": "Brother"}, {"id": "M286", "model": "S500XD1", "brand": "Brother"}, {"id": "M287", "model": "S500XD1", "brand": "Brother"}, {"id": "M288", "model": "S500X2", "brand": "Brother"}, {"id": "M289", "model": "S500X2", "brand": "Brother"}, {"id": "M290", "model": "S500X2", "brand": "Brother"}, {"id": "M291", "model": "S500X2", "brand": "Brother"}, {"id": "M292", "model": "S500X2", "brand": "Brother"}, {"id": "M293", "model": "S500X2", "brand": "Brother"}, {"id": "M294", "model": "S500X2", "brand": "Brother"}, {"id": "M295", "model": "S500X2", "brand": "Brother"}, {"id": "M296", "model": "S500X2", "brand": "Brother"}, {"id": "M297", "model": "S500X2", "brand": "Brother"}, {"id": "M298", "model": "S500X2", "brand": "Brother"}, {"id": "M299", "model": "S500X2", "brand": "Brother"}, {"id": "M300", "model": "S500X2", "brand": "Brother"}, {"id": "M301", "model": "S500X2", "brand": "Brother"}, {"id": "M302", "model": "S500X2", "brand": "Brother"}, {"id": "M303", "model": "S500X2", "brand": "Brother"}, {"id": "M304", "model": "S500X2", "brand": "Brother"}, {"id": "M305", "model": "S500X2", "brand": "Brother"}, {"id": "M306", "model": "S500X2", "brand": "Brother"}, {"id": "M307", "model": "S500XD1-5AX", "brand": "Brother"}, {"id": "M308", "model": "S500XD1-5AX", "brand": "Brother"}, {"id": "M309", "model": "S500XD1-5AX", "brand": "Brother"}, {"id": "M310", "model": "S500XD1-5AX", "brand": "Brother"}
     ];
+
+    // ===== 各分區平面圖 Block 配置數據字典 =====
+    const floorConfigs = {
+      // --- 1廠 1F ---
+      "1F_1": {
+        title: "1廠 1F 銑床區平面圖",
+        width: 1200, height: 600,
+        blocks: [
+          { title: "中央主要設備區 (預留擴充)", layout: "horizontal", x: 450, y: 220, machines: ["M169"] }
+        ]
+      },
+      // --- 1廠 2F (從右邊排過來, 加寬走道) ---
+      "1F_2": {
+        title: "1廠 2F 銑床區平面圖",
+        width: 1400, height: 800,
+        blocks: [
+          { title: "第1行 (右1)", layout: "vertical", x: 1100, y: 80, machines: ["M146", "M145", "M75", "M76", "M77", "M79"] },
+          { title: "第2行 (右2)", layout: "vertical", x: 920, y: 80, machines: ["M118", "M74", "M78", "M98", "M138", "M120"] },
+          // 走道 (第2行與第3行之間加寬)
+          { title: "第3行 (中3)", layout: "vertical", x: 670, y: 80, machines: ["M119", "M09", "M99", "M80", "M133", "M139"] },
+          { title: "第4行 (左4)", layout: "vertical", x: 490, y: 80, machines: ["M127", "M128", "M129", "M143", "M132"] },
+          // 走道 (第4行與第5行之間加寬)
+          { title: "第5行 (左5)", layout: "vertical", x: 240, y: 80, machines: ["M125", "M55", "M124", "M130", "M131", "M83", "M72"] }
+        ]
+      },
+      // --- 2廠 1F (單獨台區塊, 從右排過來) ---
+      "2F_1": {
+        title: "2廠 1F 銑床區平面圖",
+        width: 1200, height: 600,
+        blocks: [
+          // 第1行
+          { title: "行1-1", layout: "horizontal", x: 900, y: 80, machines: ["M187"] },
+          { title: "行1-2", layout: "horizontal", x: 900, y: 180, machines: ["M186"] },
+          { title: "行1-3", layout: "horizontal", x: 900, y: 280, machines: ["M185"] },
+          // 第2行
+          { title: "行2-1", layout: "horizontal", x: 700, y: 80, machines: ["M191"] },
+          { title: "行2-2", layout: "horizontal", x: 700, y: 180, machines: ["M168"] },
+          { title: "行2-3", layout: "horizontal", x: 700, y: 280, machines: ["M172"] },
+          // 走道 (第2行與第3行加寬)
+          // 第3行
+          { title: "行3-1", layout: "horizontal", x: 420, y: 80, machines: ["M170"] },
+          { title: "行3-2", layout: "horizontal", x: 420, y: 180, machines: ["M174"] }
+        ]
+      },
+      // --- 2廠 2F (保留完整原設定) ---
+      "2F_2": {
+        title: "2廠 2F 銑床區平面圖",
+        width: 2150, height: 1600,
+        blocks: [
+          { title: "左第1排", layout: "horizontal", x: 30, y: 40, machines: ["M126", "M02", "M257", "M234", "M165", "M163", "M284", "M283", "M282", "M281", "M280"] },
+          { title: "左第2排", layout: "horizontal", x: 30, y: 178, machines: ["M262", "M226", "M260", "M279", "M278", "M277", "M276", "M287", "M286", "M285"] },
+          { title: "左第3排", layout: "horizontal", x: 30, y: 278, machines: ["M224", "M258", "M219", "M218", "M299", "M300", "M273", "M301", "M302", "M306"] },
+          { title: "右第3排", layout: "horizontal", x: 1380, y: 278, machines: ["M303", "M304", "M305"] },
+          { title: "左第4排", layout: "horizontal", x: 30, y: 416, machines: ["M261", "M237", "M297", "M298"] },
+          { title: "中第4排", layout: "horizontal", x: 710, y: 416, machines: ["M307", "M308", "M309", "M310"] },
+          { title: "左第5排", layout: "horizontal", x: 30, y: 516, machines: ["M292", "M293", "M294", "M295", "M296"] },
+          { title: "左第6排", layout: "horizontal", x: 30, y: 654, machines: ["M288", "M289", "M290", "M291"] },
+          { title: "左第7排", layout: "horizontal", x: 30, y: 792, machines: ["M202", "M203", "M204", "M205", "M206"] },
+          { title: "中第7排", layout: "horizontal", x: 710, y: 792, machines: ["M212", "M215", "M214", "M207", "M193"] },
+          { title: "左第8排", layout: "horizontal", x: 30, y: 892, machines: ["M199", "M198", "M254", "M255"] },
+          { title: "中第8排", layout: "horizontal", x: 710, y: 892, machines: ["M192", "M194", "M195", "M182", "M197"] },
+          { title: "左第9排", layout: "horizontal", x: 30, y: 1030, machines: ["M201", "M217", "M184", "M196"] },
+          { title: "中第9排", layout: "horizontal", x: 710, y: 1030, machines: ["M216", "M208", "M209", "M210", "M211"] },
+          { title: "左第10排", layout: "horizontal", x: 30, y: 1130, machines: ["M175", "M176", "M177", "M178", "M173", "M180"] },
+          { title: "中第10排", layout: "horizontal", x: 710, y: 1130, machines: ["M181", "M171", "M256", "M200", "M213", "M188"] },
+          { title: "中間最下-左行", layout: "vertical", x: 830, y: 1270, machines: ["M259", "M227", "M228"] },
+          { title: "中間最下-右行", layout: "vertical", x: 1020, y: 1270, machines: ["M167", "M164", "M166"] },
+          { title: "右第4行", layout: "vertical", x: 1370, y: 416, machines: ["M154", "M155", "M156", "M157", "M158", "M159", "M160", "M161", "M153", "M251", "M271", "M272", "M274"] },
+          { title: "右第3行", layout: "vertical", x: 1545, y: 416, machines: ["M252", "M253", "M270", "M229", "M225", "M220", "M230", "M221", "M222", "M223"] },
+          { title: "右第2行", layout: "vertical", x: 1695, y: 416, machines: ["M58", "M121", "M122", "M123", "M38", "M47", "M144", "M48", "M73"] },
+          { title: "最右1行", layout: "vertical", x: 1870, y: 680, machines: ["M266", "M267", "M268", "M269", "M183"] }
+        ]
+      },
+      // --- 3廠/青年廠 (從左邊排過來) ---
+      "3F_1": {
+        title: "3廠 (青年廠) 銑床區平面圖",
+        width: 1400, height: 750,
+        blocks: [
+          { title: "第1行 (左1)", layout: "vertical", x: 80, y: 80, machines: ["M109", "M137", "M135", "M53", "M52", "M51", "M57", "M62"] },
+          // 走道 (第1行與第2行加寬)
+          { title: "第2行 (左2)", layout: "vertical", x: 330, y: 80, machines: ["M140", "M136", "M134", "M54", "M69", "M44", "M61", "M63"] },
+          // 第3行拆分為兩個獨立區塊
+          { title: "第3行 (前半段)", layout: "vertical", x: 520, y: 80, machines: ["M150", "M151", "M152"] },
+          { title: "第3行 (後半段)", layout: "vertical", x: 520, y: 380, machines: ["M60", "M46", "M56"] }
+        ]
+      }
+    };
 
     let realtimeData = {};
 
@@ -595,7 +689,7 @@
       setup: '<span class="status-badge badge-setup">🔵 架機中</span>',
       fault: '<span class="status-badge badge-fault">🔴 設備故障</span>',
       waiting: '<span class="status-badge badge-waiting">🟡 待料</span>',
-      borrowed: '<span class="status-badge badge-borrowed">🟣 設備借出(生技)</span>',
+      borrowed: '<span class="status-badge badge-borrowed">🟣 設備借出</span>',
       idle: '<span class="status-badge badge-idle">⚪ 無排產</span>'
     };
 
@@ -609,7 +703,6 @@
       updateAuthUI();
     });
 
-    // 初始化履歷選單下拉選項
     function initHistoryFilterDropdown() {
       const select = document.getElementById("historyMachineFilter");
       baseEquipmentList.forEach(e => {
@@ -620,7 +713,6 @@
       });
     }
 
-    // ===== 登入與權限控制機制 =====
     window.updateAuthUI = function() {
       const btn = document.getElementById("authBtn");
       if (currentUser) {
@@ -630,7 +722,6 @@
         btn.textContent = "🔑 維護員登入";
         btn.classList.remove("logged-in");
       }
-      // 重新整理履歷列表以更新操作按鈕顯示狀態
       listenHistoryRealtime();
     };
 
@@ -646,19 +737,10 @@
       }
     };
 
-    window.openLoginModal = function() {
-      document.getElementById("loginModal").classList.remove("hidden");
-    };
+    window.openLoginModal = function() { document.getElementById("loginModal").classList.remove("hidden"); };
+    window.closeLoginModal = function() { document.getElementById("loginModal").classList.add("hidden"); };
+    window.handleLoginBackdropClick = function(e) { if (e.target.id === "loginModal") closeLoginModal(); };
 
-    window.closeLoginModal = function() {
-      document.getElementById("loginModal").classList.add("hidden");
-    };
-
-    window.handleLoginBackdropClick = function(e) {
-      if (e.target.id === "loginModal") closeLoginModal();
-    };
-
-    // 4. 分頁切換
     window.switchTab = function(tabId, e) {
       document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
       document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
@@ -672,7 +754,17 @@
       document.getElementById(tabId).classList.add('active');
     };
 
-    // 一鍵跳轉至指定機台歷史履歷 (入口 C)
+    // 切換廠區樓層
+    window.switchFloor = function(floorKey) {
+      currentFloor = floorKey;
+      document.querySelectorAll('.floor-btn').forEach(btn => btn.classList.remove('active'));
+      const activeBtn = document.getElementById(`btnFloor_${floorKey}`);
+      if (activeBtn) activeBtn.classList.add('active');
+
+      renderSvgBlocks();
+      updateAreaDashboard();
+    };
+
     window.jumpToMachineHistory = function() {
       const machineId = document.getElementById("modalMachineId").value;
       if (!machineId) return;
@@ -683,15 +775,29 @@
       listenHistoryRealtime();
     };
 
-    // 5. SVG 分區與機台動態繪製
+    // 動態繪製當前選定廠區 SVG 地圖
     function renderSvgBlocks() {
+      const config = floorConfigs[currentFloor];
+      if (!config) return;
+
+      const svg = document.getElementById("mainSvg");
+      svg.setAttribute("viewBox", `0 0 ${config.width} ${config.height}`);
+      
+      const svgTitle = document.getElementById("svgTitle");
+      svgTitle.textContent = config.title;
+      svgTitle.setAttribute("x", config.width / 2);
+
+      const outerRect = svg.querySelector("rect");
+      outerRect.setAttribute("width", config.width - 20);
+      outerRect.setAttribute("height", config.height - 20);
+
       const group = document.getElementById("blocksGroup");
       group.innerHTML = "";
 
       const mw = 92, mh = 68, gap = 8;
       const padLeft = 26, padRight = 10, padTop = 10, padBottom = 10;
 
-      blocksConfig.forEach(block => {
+      config.blocks.forEach(block => {
         const bGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
         const count = block.machines.length;
         
@@ -769,17 +875,17 @@
           `;
 
           foreignObj.appendChild(div);
-
           mGroup.appendChild(mRect);
           mGroup.appendChild(foreignObj);
           bGroup.appendChild(mGroup);
+
+          updateSvgMachineDisplay(id);
         });
 
         group.appendChild(bGroup);
       });
     }
 
-    // 6. Firestore 即時連線監聽
     function listenFirestoreRealtime() {
       onSnapshot(collection(db, "machines"), (snapshot) => {
         snapshot.forEach((doc) => {
@@ -787,6 +893,7 @@
           updateSvgMachineDisplay(doc.id);
         });
         updateDashboardCounts();
+        updateAreaDashboard();
         renderList();
       });
     }
@@ -819,11 +926,8 @@
         pnDiv.style.display = "none";
       }
 
-      if (status === "fault" && faultReason !== "") {
-        reasonDiv.textContent = `⚠️ ${faultReason}`;
-        reasonDiv.style.display = "block";
-      } else if (status === "borrowed" && faultReason !== "") {
-        reasonDiv.textContent = `🟣 ${faultReason}`;
+      if ((status === "fault" || status === "borrowed") && faultReason !== "") {
+        reasonDiv.textContent = faultReason;
         reasonDiv.style.display = "block";
       } else {
         reasonDiv.textContent = "";
@@ -831,6 +935,7 @@
       }
     }
 
+    // 全廠看板數據更新
     function updateDashboardCounts() {
       let counts = { running: 0, setup: 0, fault: 0, waiting: 0, borrowed: 0, idle: 0 };
       baseEquipmentList.forEach(item => {
@@ -850,21 +955,43 @@
       document.getElementById("utilizationRate").textContent = `${rate}%`;
     }
 
-    // 7. 歷史履歷動態監聽 (支援全廠與單機精準查詢 - 作法 1 + 選項 A 完整日期)
-    window.onHistoryFilterChange = function() {
-      listenHistoryRealtime();
-    };
+    // 當前樓層/分區獨立稼動率計算
+    function updateAreaDashboard() {
+      const config = floorConfigs[currentFloor];
+      if (!config) return;
+
+      document.getElementById("currentAreaTitle").textContent = `📍 ${config.title.replace("平面圖", "")}`;
+
+      let areaMachines = [];
+      config.blocks.forEach(b => areaMachines.push(...b.machines));
+
+      let total = areaMachines.length;
+      let runningCount = 0;
+      let setupCount = 0;
+
+      areaMachines.forEach(id => {
+        const st = (realtimeData[id] && realtimeData[id].status) || 'idle';
+        if (st === 'running') runningCount++;
+        if (st === 'setup') setupCount++;
+      });
+
+      const rate = total > 0 ? (((runningCount + setupCount) / total) * 100).toFixed(1) : 0;
+
+      document.getElementById("areaTotalCount").textContent = total;
+      document.getElementById("areaRunningCount").textContent = runningCount;
+      document.getElementById("areaUtilizationRate").textContent = `${rate}%`;
+    }
+
+    window.onHistoryFilterChange = function() { listenHistoryRealtime(); };
 
     function formatFullDate(timestamp) {
       if (!timestamp) return "剛才";
       const dt = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-      
       const year = dt.getFullYear();
       const month = String(dt.getMonth() + 1).padStart(2, '0');
       const day = String(dt.getDate()).padStart(2, '0');
       const hours = String(dt.getHours()).padStart(2, '0');
       const minutes = String(dt.getMinutes()).padStart(2, '0');
-
       return `${year}/${month}/${day} ${hours}:${minutes}`;
     }
 
@@ -877,7 +1004,6 @@
       if (selectedMachine === "ALL") {
         q = query(collection(db, "history"), orderBy("timestamp", "desc"), limit(50));
       } else {
-        // 精準單機獨立歷史查詢
         q = query(collection(db, "history"), where("machineId", "==", selectedMachine), limit(50));
       }
 
@@ -885,11 +1011,8 @@
         const container = document.getElementById("historyContainer");
         let records = [];
 
-        snapshot.forEach((doc) => {
-          records.push({ docId: doc.id, ...doc.data() });
-        });
+        snapshot.forEach((doc) => records.push({ docId: doc.id, ...doc.data() }));
 
-        // 若為單機查詢，前端確保依照時間倒序排列
         if (selectedMachine !== "ALL") {
           records.sort((a, b) => {
             const tA = a.timestamp ? a.timestamp.toMillis() : Date.now();
@@ -899,7 +1022,7 @@
         }
 
         if (records.length === 0) {
-          container.innerHTML = `<p style="text-align:center; color:#94a3b8; padding:2rem;">📭 查無 ${selectedMachine === "ALL" ? "" : selectedMachine} 的相關歷史異動紀錄</p>`;
+          container.innerHTML = `<p style="text-align:center; color:#94a3b8; padding:2rem;">📭 查無 ${selectedMachine === "ALL" ? "" : selectedMachine} 的相關歷史紀錄</p>`;
           return;
         }
 
@@ -912,7 +1035,7 @@
                 <span class="card-title">${data.machineId}</span>
                 <div style="display:flex; align-items:center; gap:0.5rem;">
                   ${statusBadges[data.status] || data.status}
-                  ${currentUser ? `<button class="btn-mini-danger" onclick="deleteHistoryRecord('${data.docId}', event)">🗑️ 刪除誤填</button>` : ''}
+                  ${currentUser ? `<button class="btn-mini-danger" onclick="deleteHistoryRecord('${data.docId}', event)">🗑️ 刪除</button>` : ''}
                 </div>
               </div>
               <div class="card-body-row"><span>料號 / 製程:</span> <strong>${data.partNumber || '-'} / ${data.process || '-'}</strong></div>
@@ -926,26 +1049,19 @@
       });
     }
 
-    // 刪除單筆登記錯誤的歷史紀錄 (提供給維護員補救)
     window.deleteHistoryRecord = async function(docId, e) {
       if (e) e.stopPropagation();
-      if (!currentUser) {
-        alert("請先登入維護員帳號才可執行紀錄修正！");
-        return;
-      }
-
-      if (confirm("確定要刪除這筆登記錯誤的歷史紀錄嗎？")) {
+      if (!currentUser) return alert("請先登入維護員帳號！");
+      if (confirm("確定要刪除這筆異動紀錄嗎？")) {
         try {
           await deleteDoc(doc(db, "history", docId));
-          alert("已成功刪除該筆錯誤紀錄！");
         } catch (err) {
           console.error(err);
-          alert("刪除失敗，請檢查權限或網路連線。");
+          alert("刪除失敗！");
         }
       }
     };
 
-    // 8. 渲染設備清單
     window.renderList = function() {
       const container = document.getElementById("listContainer");
       const search = document.getElementById("searchInput").value.toLowerCase();
@@ -982,7 +1098,6 @@
       container.innerHTML = html;
     };
 
-    // 9. CSV 報表匯出
     window.exportToCSV = function() {
       let csv = "\uFEFF資產編號,廠牌,型號,狀態,生產料號,製程,備註/原因,更新人員\n";
       baseEquipmentList.forEach(e => {
@@ -992,14 +1107,13 @@
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
       const link = document.createElement("a");
       link.href = URL.createObjectURL(blob);
-      link.download = `設備狀態報表_${new Date().toISOString().slice(0,10)}.csv`;
+      link.download = `旭申全廠設備狀態報表_${new Date().toISOString().slice(0,10)}.csv`;
       link.click();
     };
 
-    // 10. Modal 彈窗與權限檢查
     window.openModal = function(id) {
       if (!currentUser) {
-        alert("一般訪客僅供觀看狀態。若需修改內容，請先進行維護員登入！");
+        alert("一般訪客僅供觀看。修改請先進行維護員登入！");
         openLoginModal();
         return;
       }
@@ -1014,19 +1128,13 @@
       document.getElementById("modalPartNumber").value = data.partNumber || "";
       document.getElementById("modalProcess").value = data.process || "";
       document.getElementById("modalFaultReason").value = data.faultReason || "";
-      
       document.getElementById("modalUpdatedBy").value = currentUser;
 
       modal.classList.remove("hidden");
     };
 
-    window.closeModal = function() {
-      document.getElementById("statusModal").classList.add("hidden");
-    };
-
-    window.handleModalBackdropClick = function(e) {
-      if (e.target.id === "statusModal") closeModal();
-    };
+    window.closeModal = function() { document.getElementById("statusModal").classList.add("hidden"); };
+    window.handleModalBackdropClick = function(e) { if (e.target.id === "statusModal") closeModal(); };
 
     function initFormEvents() {
       document.getElementById("loginForm").addEventListener("submit", (e) => {
@@ -1048,12 +1156,7 @@
 
       document.getElementById("updateForm").addEventListener("submit", async (e) => {
         e.preventDefault();
-        
-        if (!currentUser) {
-          alert("登入狀態已失效，請重新登入！");
-          openLoginModal();
-          return;
-        }
+        if (!currentUser) return openLoginModal();
 
         const id = document.getElementById("modalMachineId").value;
         const updateData = {
@@ -1079,7 +1182,7 @@
           closeModal();
         } catch (err) {
           console.error(err);
-          alert("更新失敗，請檢查網路連線或權限！");
+          alert("更新失敗，請檢查網路連線！");
         }
       });
     }
