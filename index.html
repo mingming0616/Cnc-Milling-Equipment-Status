@@ -170,20 +170,20 @@
       pointer-events: none;
     }
     .node-id {
-      font-size: 18px;
-      font-weight: 700;
+      font-size: 12px;
+      font-weight: 800;
       color: #ffffff;
       text-shadow: 0 1px 2px rgba(0,0,0,0.8);
     }
     .node-pn {
-      font-size: 12px;
+      font-size: 9.5px;
       color: #fef08a;
       font-weight: 600;
       word-break: break-all;
       margin-top: 1px;
     }
     .node-reason {
-      font-size: 11px;
+      font-size: 9px;
       color: #fca5a5;
       font-weight: bold;
       word-break: break-all;
@@ -222,6 +222,16 @@
       font-size: 0.9rem;
       text-align: center;
     }
+    .btn-secondary {
+      padding: 0.5rem 0.8rem;
+      background-color: #334155;
+      color: #38bdf8;
+      border: 1px solid #0284c7;
+      border-radius: 0.4rem;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.85rem;
+    }
 
     /* --- 手機卡片清單 --- */
     .card-list {
@@ -255,8 +265,22 @@
     .card-body-row {
       display: flex;
       justify-content: space-between;
+      align-items: center;
       font-size: 0.82rem;
       color: #cbd5e1;
+    }
+    .history-card-actions {
+      display: flex;
+      gap: 0.4rem;
+    }
+    .btn-mini-danger {
+      padding: 0.2rem 0.4rem;
+      background-color: #991b1b;
+      color: #fca5a5;
+      border: none;
+      border-radius: 0.3rem;
+      font-size: 0.7rem;
+      cursor: pointer;
     }
 
     /* 狀態標籤樣式 */
@@ -337,6 +361,18 @@
       cursor: pointer;
       margin-top: 0.6rem;
     }
+    .btn-history-link {
+      width: 100%;
+      padding: 0.6rem;
+      background-color: #334155;
+      color: #38bdf8;
+      border: 1px solid #0284c7;
+      border-radius: 0.5rem;
+      font-weight: 600;
+      font-size: 0.9rem;
+      cursor: pointer;
+      margin-top: 0.4rem;
+    }
   </style>
 </head>
 <body>
@@ -347,9 +383,9 @@
       <button id="authBtn" class="btn-auth" onclick="handleAuthClick()">🔑 維護員登入</button>
     </div>
     <div class="nav-tabs">
-      <button class="tab-btn active" onclick="switchTab('mapTab', event)">🗺️ 地圖平面圖</button>
-      <button class="tab-btn" onclick="switchTab('listTab', event)">📋 設備清單</button>
-      <button class="tab-btn" onclick="switchTab('historyTab', event)">📜 異動履歷</button>
+      <button id="btnMapTab" class="tab-btn active" onclick="switchTab('mapTab', event)">🗺️ 地圖平面圖</button>
+      <button id="btnListTab" class="tab-btn" onclick="switchTab('listTab', event)">📋 設備清單</button>
+      <button id="btnHistoryTab" class="tab-btn" onclick="switchTab('historyTab', event)">📜 異動履歷</button>
     </div>
   </header>
 
@@ -389,13 +425,9 @@
   <main id="mapTab" class="tab-content active">
     <div id="mapContainer">
       <div id="svgWrapper">
-        <!-- SVG 寬度放大至 2150 以完美相容右側延伸佈局 -->
         <svg viewBox="0 0 2150 1600" xmlns="http://www.w3.org/2000/svg">
-          <!-- 廠房整體外框 -->
           <rect x="10" y="10" width="2130" height="1580" fill="#1e293b" stroke="#475569" stroke-width="3" rx="10"/>
           <text x="1075" y="30" fill="#38bdf8" font-size="18" font-weight="bold" text-anchor="middle">2廠 2F 銑床區平面圖 (分區包覆模式)</text>
-
-          <!-- 動態繪製機台與分區外框 -->
           <g id="blocksGroup"></g>
         </svg>
       </div>
@@ -423,6 +455,12 @@
 
   <!-- 分頁 3: 歷史履歷紀錄 -->
   <main id="historyTab" class="tab-content">
+    <div class="filter-bar">
+      <label style="font-size:0.85rem; color:#cbd5e1;">🔎 篩選指定設備履歷：</label>
+      <select id="historyMachineFilter" onchange="onHistoryFilterChange()">
+        <option value="ALL">🌐 全廠機台 (最新紀錄)</option>
+      </select>
+    </div>
     <div id="historyContainer"></div>
   </main>
 
@@ -480,6 +518,7 @@
           <input type="text" id="modalUpdatedBy" readonly placeholder="登入後自動帶入">
         </div>
         <button type="submit" class="btn-submit">💾 儲存並即時更新</button>
+        <button type="button" class="btn-history-link" onclick="jumpToMachineHistory()">📜 查看此機台歷史履歷</button>
       </form>
     </div>
   </div>
@@ -487,28 +526,19 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { 
-      getFirestore, collection, doc, setDoc, addDoc, onSnapshot, query, orderBy, limit, serverTimestamp 
+      getFirestore, collection, doc, setDoc, addDoc, deleteDoc, onSnapshot, query, where, orderBy, limit, serverTimestamp 
     } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
     // ===== 維護人員帳號與密碼對照清單 =====
     const MAINTENANCE_USERS = {
-      "劉德康": "09043",
-      "何敬豐": "08020",
-      "陳明秀": "08003",
-      "李意明": "22004",
-      "賴頎仁": "17036",
-      "邱柏雄": "12024",
-      "姜祺祥": "08013",
-      "江明旭": "12101",
-      "林昊騰": "13092",
-      "黎文杰": "15048",
-      "林秉健": "10171",
-      "李國偉": "10149",
-      "阮玉碧": "11049",
-      "黎芳瑜": "11054"
+      "劉德康": "09043", "何敬豐": "08020", "陳明秀": "08003", "李意明": "22004",
+      "賴頎仁": "17036", "邱柏雄": "12024", "姜祺祥": "08013", "江明旭": "12101",
+      "林昊騰": "13092", "黎文杰": "15048", "林秉健": "10171", "李國偉": "10149",
+      "阮玉碧": "11049", "黎芳瑜": "11054"
     };
 
     let currentUser = localStorage.getItem("maintainerUser") || null;
+    let historyUnsubscribe = null; // 用於切換履歷監聽
 
     // 1. Firebase 設定
     const firebaseConfig = {
@@ -527,43 +557,37 @@
     // 2. 設備基礎數據清單
     const baseEquipmentList = [{"id": "M02", "model": "TR-45L", "brand": "森合"}, {"id": "M38", "model": "TR-60A", "brand": "森合"}, {"id": "M47", "model": "TR-60A", "brand": "森合"}, {"id": "M48", "model": "TR-60A", "brand": "森合"}, {"id": "M58", "model": "TR-60A", "brand": "森合"}, {"id": "M73", "model": "TR-60A", "brand": "森合"}, {"id": "M121", "model": "TR-60A", "brand": "森合"}, {"id": "M122", "model": "TR-60A", "brand": "森合"}, {"id": "M123", "model": "TR-60A", "brand": "森合"}, {"id": "M126", "model": "TR-45E", "brand": "森合"}, {"id": "M144", "model": "TR-70A", "brand": "森合"}, {"id": "M153", "model": "TC-S2DN", "brand": "Brother"}, {"id": "M154", "model": "TC-S2DN", "brand": "Brother"}, {"id": "M155", "model": "TC-S2DN", "brand": "Brother"}, {"id": "M156", "model": "TC-S2DN", "brand": "Brother"}, {"id": "M157", "model": "TC-S2DN", "brand": "Brother"}, {"id": "M158", "model": "TC-S2DN", "brand": "Brother"}, {"id": "M159", "model": "TC-S2DN", "brand": "Brother"}, {"id": "M160", "model": "TC-S2DN", "brand": "Brother"}, {"id": "M161", "model": "TC-S2DN", "brand": "Brother"}, {"id": "M163", "model": "TC-S2DN-O", "brand": "Brother"}, {"id": "M164", "model": "TC-S2DN-O", "brand": "Brother"}, {"id": "M165", "model": "TC-S2DN-O", "brand": "Brother"}, {"id": "M166", "model": "TC-S2DN-O", "brand": "Brother"}, {"id": "M167", "model": "TC-S2DN-O", "brand": "Brother"}, {"id": "M171", "model": "TC-R2B", "brand": "Brother"}, {"id": "M173", "model": "TC-R2B", "brand": "Brother"}, {"id": "M175", "model": "TC-R2B", "brand": "Brother"}, {"id": "M176", "model": "TC-R2B", "brand": "Brother"}, {"id": "M177", "model": "TC-R2B", "brand": "Brother"}, {"id": "M178", "model": "TC-R2B", "brand": "Brother"}, {"id": "M180", "model": "TC-R2B", "brand": "Brother"}, {"id": "M181", "model": "TC-R2B", "brand": "Brother"}, {"id": "M182", "model": "TC-R2B", "brand": "Brother"}, {"id": "M183", "model": "TC-R2B", "brand": "Brother"}, {"id": "M184", "model": "TC-R2B", "brand": "Brother"}, {"id": "M188", "model": "R450X1", "brand": "Brother"}, {"id": "M192", "model": "R450X1", "brand": "Brother"}, {"id": "M193", "model": "R450X1", "brand": "Brother"}, {"id": "M194", "model": "R450X1", "brand": "Brother"}, {"id": "M195", "model": "R450X1", "brand": "Brother"}, {"id": "M196", "model": "R450X1", "brand": "Brother"}, {"id": "M197", "model": "R450X1", "brand": "Brother"}, {"id": "M198", "model": "R450X1", "brand": "Brother"}, {"id": "M199", "model": "R450X1", "brand": "Brother"}, {"id": "M200", "model": "R450X1", "brand": "Brother"}, {"id": "M201", "model": "R450X1", "brand": "Brother"}, {"id": "M202", "model": "R450X1", "brand": "Brother"}, {"id": "M203", "model": "R450X1", "brand": "Brother"}, {"id": "M204", "model": "R450X1", "brand": "Brother"}, {"id": "M205", "model": "R450X1", "brand": "Brother"}, {"id": "M206", "model": "R450X1", "brand": "Brother"}, {"id": "M207", "model": "R450X1", "brand": "Brother"}, {"id": "M208", "model": "R450X1", "brand": "Brother"}, {"id": "M209", "model": "R450X1", "brand": "Brother"}, {"id": "M210", "model": "R450X1", "brand": "Brother"}, {"id": "M211", "model": "R450X1", "brand": "Brother"}, {"id": "M212", "model": "R450X1", "brand": "Brother"}, {"id": "M213", "model": "R450X1", "brand": "Brother"}, {"id": "M214", "model": "R450X1", "brand": "Brother"}, {"id": "M215", "model": "R450X1", "brand": "Brother"}, {"id": "M216", "model": "R450X1", "brand": "Brother"}, {"id": "M217", "model": "R450X1", "brand": "Brother"}, {"id": "M218", "model": "S700X1", "brand": "Brother"}, {"id": "M219", "model": "S700X1", "brand": "Brother"}, {"id": "M220", "model": "S700X1", "brand": "Brother"}, {"id": "M221", "model": "S700X1", "brand": "Brother"}, {"id": "M222", "model": "S700X1", "brand": "Brother"}, {"id": "M223", "model": "S700X1", "brand": "Brother"}, {"id": "M224", "model": "S700X1", "brand": "Brother"}, {"id": "M225", "model": "S700X1", "brand": "Brother"}, {"id": "M226", "model": "S700X1", "brand": "Brother"}, {"id": "M227", "model": "S700X1", "brand": "Brother"}, {"id": "M228", "model": "S700X1", "brand": "Brother"}, {"id": "M229", "model": "S700X1", "brand": "Brother"}, {"id": "M230", "model": "S700X1", "brand": "Brother"}, {"id": "M234", "model": "S700X1", "brand": "Brother"}, {"id": "M237", "model": "S700X1", "brand": "Brother"}, {"id": "M251", "model": "S500X1", "brand": "Brother"}, {"id": "M252", "model": "S500X1", "brand": "Brother"}, {"id": "M253", "model": "S500X1", "brand": "Brother"}, {"id": "M254", "model": "S500X1", "brand": "Brother"}, {"id": "M255", "model": "S500X1", "brand": "Brother"}, {"id": "M256", "model": "R450X1", "brand": "Brother"}, {"id": "M257", "model": "S700X2", "brand": "Brother"}, {"id": "M258", "model": "S700X2", "brand": "Brother"}, {"id": "M259", "model": "S700X2", "brand": "Brother"}, {"id": "M260", "model": "S700X2", "brand": "Brother"}, {"id": "M261", "model": "S700X2", "brand": "Brother"}, {"id": "M262", "model": "S700X2", "brand": "Brother"}, {"id": "M266", "model": "R450X2", "brand": "Brother"}, {"id": "M267", "model": "R450X2", "brand": "Brother"}, {"id": "M268", "model": "R450X2", "brand": "Brother"}, {"id": "M269", "model": "R450X2", "brand": "Brother"}, {"id": "M270", "model": "S500X2", "brand": "Brother"}, {"id": "M271", "model": "S500X2", "brand": "Brother"}, {"id": "M272", "model": "S500X2", "brand": "Brother"}, {"id": "M273", "model": "S500X2", "brand": "Brother"}, {"id": "M274", "model": "S500X2", "brand": "Brother"}, {"id": "M276", "model": "U500XD1 RD", "brand": "Brother"}, {"id": "M277", "model": "U500XD1 RD", "brand": "Brother"}, {"id": "M278", "model": "U500XD1 RD", "brand": "Brother"}, {"id": "M279", "model": "U500XD1 RD", "brand": "Brother"}, {"id": "M280", "model": "S500XD1", "brand": "Brother"}, {"id": "M281", "model": "S500XD1", "brand": "Brother"}, {"id": "M282", "model": "S500XD1", "brand": "Brother"}, {"id": "M283", "model": "S500XD1", "brand": "Brother"}, {"id": "M284", "model": "S500XD1", "brand": "Brother"}, {"id": "M285", "model": "S500XD1", "brand": "Brother"}, {"id": "M286", "model": "S500XD1", "brand": "Brother"}, {"id": "M287", "model": "S500XD1", "brand": "Brother"}, {"id": "M288", "model": "S500X2", "brand": "Brother"}, {"id": "M289", "model": "S500X2", "brand": "Brother"}, {"id": "M290", "model": "S500X2", "brand": "Brother"}, {"id": "M291", "model": "S500X2", "brand": "Brother"}, {"id": "M292", "model": "S500X2", "brand": "Brother"}, {"id": "M293", "model": "S500X2", "brand": "Brother"}, {"id": "M294", "model": "S500X2", "brand": "Brother"}, {"id": "M295", "model": "S500X2", "brand": "Brother"}, {"id": "M296", "model": "S500X2", "brand": "Brother"}, {"id": "M297", "model": "S500X2", "brand": "Brother"}, {"id": "M298", "model": "S500X2", "brand": "Brother"}, {"id": "M299", "model": "S500X2", "brand": "Brother"}, {"id": "M300", "model": "S500X2", "brand": "Brother"}, {"id": "M301", "model": "S500X2", "brand": "Brother"}, {"id": "M302", "model": "S500X2", "brand": "Brother"}, {"id": "M303", "model": "S500X2", "brand": "Brother"}, {"id": "M304", "model": "S500X2", "brand": "Brother"}, {"id": "M305", "model": "S500X2", "brand": "Brother"}, {"id": "M306", "model": "S500X2", "brand": "Brother"}, {"id": "M307", "model": "S500XD1-5AX", "brand": "Brother"}, {"id": "M308", "model": "S500XD1-5AX", "brand": "Brother"}, {"id": "M309", "model": "S500XD1-5AX", "brand": "Brother"}, {"id": "M310", "model": "S500XD1-5AX", "brand": "Brother"}];
 
-    // 3. 分區與間距設定 (右側直排保持舒適間距右移，避免擠壓)
+    // 3. 分區與間距設定
     const blocksConfig = [
       { title: "左第1排", layout: "horizontal", x: 30, y: 40, machines: ["M126", "M02", "M257", "M234", "M165", "M163", "M284", "M283", "M282", "M281", "M280"] },
       { title: "左第2排", layout: "horizontal", x: 30, y: 178, machines: ["M262", "M226", "M260", "M279", "M278", "M277", "M276", "M287", "M286", "M285"] },
       { title: "左第3排", layout: "horizontal", x: 30, y: 278, machines: ["M224", "M258", "M219", "M218", "M299", "M300", "M273", "M301", "M302", "M306"] },
       { title: "右第3排", layout: "horizontal", x: 1380, y: 278, machines: ["M303", "M304", "M305"] },
       { title: "左第4排", layout: "horizontal", x: 30, y: 416, machines: ["M261", "M237", "M297", "M298"] },
-      { title: "中第4排", layout: "horizontal", x: 710, y: 416, machines: ["M307", "M308", "M309", "M310"] },
+      { title: "中第4排", layout: "horizontal", x: 680, y: 416, machines: ["M307", "M308", "M309", "M310"] },
       { title: "左第5排", layout: "horizontal", x: 30, y: 516, machines: ["M292", "M293", "M294", "M295", "M296"] },
       { title: "左第6排", layout: "horizontal", x: 30, y: 654, machines: ["M288", "M289", "M290", "M291"] },
       { title: "左第7排", layout: "horizontal", x: 30, y: 792, machines: ["M202", "M203", "M204", "M205", "M206"] },
-      { title: "中第7排", layout: "horizontal", x: 710, y: 792, machines: ["M212", "M215", "M214", "M207", "M193"] },
+      { title: "中第7排", layout: "horizontal", x: 680, y: 792, machines: ["M212", "M215", "M214", "M207", "M193"] },
       { title: "左第8排", layout: "horizontal", x: 30, y: 892, machines: ["M199", "M198", "M254", "M255"] },
-      { title: "中第8排", layout: "horizontal", x: 710, y: 892, machines: ["M192", "M194", "M195", "M182", "M197"] },
+      { title: "中第8排", layout: "horizontal", x: 680, y: 892, machines: ["M192", "M194", "M195", "M182", "M197"] },
       { title: "左第9排", layout: "horizontal", x: 30, y: 1030, machines: ["M201", "M217", "M184", "M196"] },
-      { title: "中第9排", layout: "horizontal", x: 710, y: 1030, machines: ["M216", "M208", "M209", "M210", "M211"] },
+      { title: "中第9排", layout: "horizontal", x: 680, y: 1030, machines: ["M216", "M208", "M209", "M210", "M211"] },
       { title: "左第10排", layout: "horizontal", x: 30, y: 1130, machines: ["M175", "M176", "M177", "M178", "M173", "M180"] },
-      { title: "中第10排", layout: "horizontal", x: 710, y: 1130, machines: ["M181", "M171", "M256", "M200", "M213", "M188"] },
-      { title: "中間最下-左行", layout: "vertical", x: 850, y: 1270, machines: ["M259", "M227", "M228"] },
-      { title: "中間最下-右行", layout: "vertical", x: 1000, y: 1270, machines: ["M167", "M164", "M166"] },
-      
-      // 📍 右側直排：保持原本佈局節奏，配合左側加寬同步平移 (x: 1380 ~ 1860, y: 380)
-      { title: "右第4行", layout: "vertical", x: 1380, y: 416, machines: ["M154", "M155", "M156", "M157", "M158", "M159", "M160", "M161", "M153", "M251", "M271", "M272", "M274"] },
-      { title: "右第3行", layout: "vertical", x: 1560, y: 416, machines: ["M252", "M253", "M270", "M229", "M225", "M220", "M230", "M221", "M222", "M223"] },
-      { title: "右第2行", layout: "vertical", x: 1700, y: 416, machines: ["M58", "M121", "M122", "M123", "M38", "M47", "M144", "M48", "M73"] },
-      { title: "右第1行", layout: "vertical", x: 1880, y: 416, machines: ["M266", "M267", "M268", "M269", "M183"] }
+      { title: "中第10排", layout: "horizontal", x: 680, y: 1130, machines: ["M181", "M171", "M256", "M200", "M213", "M188"] },
+      { title: "中間最下-左行", layout: "vertical", x: 850, y: 1250, machines: ["M259", "M227", "M228"] },
+      { title: "中間最下-右行", layout: "vertical", x: 1000, y: 1250, machines: ["M167", "M164", "M166"] },
+      { title: "右第4行", layout: "vertical", x: 1380, y: 380, machines: ["M154", "M155", "M156", "M157", "M158", "M159", "M160", "M161", "M153", "M251", "M271", "M272", "M274"] },
+      { title: "右第3行", layout: "vertical", x: 1540, y: 380, machines: ["M252", "M253", "M270", "M229", "M225", "M220", "M230", "M221", "M222", "M223"] },
+      { title: "右第2行", layout: "vertical", x: 1700, y: 380, machines: ["M58", "M121", "M122", "M123", "M38", "M47", "M144", "M48", "M73"] },
+      { title: "最右一行", layout: "vertical", x: 1860, y: 380, machines: ["M266", "M267", "M268", "M269", "M183"] }
     ];
 
     let realtimeData = {};
 
     const statusColors = {
-      running: "#22c55e",
-      setup: "#3b82f6",
-      fault: "#ef4444",
-      waiting: "#eab308",
-      borrowed: "#a855f7",
-      idle: "#475569"
+      running: "#22c55e", setup: "#3b82f6", fault: "#ef4444",
+      waiting: "#eab308", borrowed: "#a855f7", idle: "#475569"
     };
 
     const statusBadges = {
@@ -576,6 +600,7 @@
     };
 
     document.addEventListener("DOMContentLoaded", () => {
+      initHistoryFilterDropdown();
       renderSvgBlocks();
       listenFirestoreRealtime();
       listenHistoryRealtime();
@@ -583,6 +608,17 @@
       renderList();
       updateAuthUI();
     });
+
+    // 初始化履歷選單下拉選項
+    function initHistoryFilterDropdown() {
+      const select = document.getElementById("historyMachineFilter");
+      baseEquipmentList.forEach(e => {
+        const opt = document.createElement("option");
+        opt.value = e.id;
+        opt.textContent = `${e.id} (${e.model})`;
+        select.appendChild(opt);
+      });
+    }
 
     // ===== 登入與權限控制機制 =====
     window.updateAuthUI = function() {
@@ -594,6 +630,8 @@
         btn.textContent = "🔑 維護員登入";
         btn.classList.remove("logged-in");
       }
+      // 重新整理履歷列表以更新操作按鈕顯示狀態
+      listenHistoryRealtime();
     };
 
     window.handleAuthClick = function() {
@@ -625,8 +663,24 @@
       document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
       document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
       
-      if(e && e.target) e.target.classList.add('active');
+      if(e && e.target) {
+        e.target.classList.add('active');
+      } else if(tabId === 'historyTab') {
+        document.getElementById('btnHistoryTab').classList.add('active');
+      }
+
       document.getElementById(tabId).classList.add('active');
+    };
+
+    // 一鍵跳轉至指定機台歷史履歷 (入口 C)
+    window.jumpToMachineHistory = function() {
+      const machineId = document.getElementById("modalMachineId").value;
+      if (!machineId) return;
+
+      closeModal();
+      document.getElementById("historyMachineFilter").value = machineId;
+      switchTab('historyTab');
+      listenHistoryRealtime();
     };
 
     // 5. SVG 分區與機台動態繪製
@@ -650,7 +704,6 @@
           bh = padTop + padBottom + count * (mh + gap) - gap;
         }
 
-        // 外框
         const bRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
         bRect.setAttribute("x", block.x);
         bRect.setAttribute("y", block.y);
@@ -663,7 +716,6 @@
         bRect.setAttribute("stroke-width", "1.5");
         bRect.setAttribute("rx", "8");
 
-        // 直式標題 (置於左側)
         const bText = document.createElementNS("http://www.w3.org/2000/svg", "text");
         bText.setAttribute("x", block.x + 10);
         bText.setAttribute("y", block.y + 12);
@@ -798,25 +850,74 @@
       document.getElementById("utilizationRate").textContent = `${rate}%`;
     }
 
-    // 7. 歷史履歷監聽
+    // 7. 歷史履歷動態監聽 (支援全廠與單機精準查詢 - 作法 1 + 選項 A 完整日期)
+    window.onHistoryFilterChange = function() {
+      listenHistoryRealtime();
+    };
+
+    function formatFullDate(timestamp) {
+      if (!timestamp) return "剛才";
+      const dt = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+      
+      const year = dt.getFullYear();
+      const month = String(dt.getMonth() + 1).padStart(2, '0');
+      const day = String(dt.getDate()).padStart(2, '0');
+      const hours = String(dt.getHours()).padStart(2, '0');
+      const minutes = String(dt.getMinutes()).padStart(2, '0');
+
+      return `${year}/${month}/${day} ${hours}:${minutes}`;
+    }
+
     function listenHistoryRealtime() {
-      const q = query(collection(db, "history"), orderBy("timestamp", "desc"), limit(40));
-      onSnapshot(q, (snapshot) => {
+      if (historyUnsubscribe) historyUnsubscribe();
+
+      const selectedMachine = document.getElementById("historyMachineFilter").value;
+      let q;
+
+      if (selectedMachine === "ALL") {
+        q = query(collection(db, "history"), orderBy("timestamp", "desc"), limit(50));
+      } else {
+        // 精準單機獨立歷史查詢
+        q = query(collection(db, "history"), where("machineId", "==", selectedMachine), limit(50));
+      }
+
+      historyUnsubscribe = onSnapshot(q, (snapshot) => {
         const container = document.getElementById("historyContainer");
+        let records = [];
+
+        snapshot.forEach((doc) => {
+          records.push({ docId: doc.id, ...doc.data() });
+        });
+
+        // 若為單機查詢，前端確保依照時間倒序排列
+        if (selectedMachine !== "ALL") {
+          records.sort((a, b) => {
+            const tA = a.timestamp ? a.timestamp.toMillis() : Date.now();
+            const tB = b.timestamp ? b.timestamp.toMillis() : Date.now();
+            return tB - tA;
+          });
+        }
+
+        if (records.length === 0) {
+          container.innerHTML = `<p style="text-align:center; color:#94a3b8; padding:2rem;">📭 查無 ${selectedMachine === "ALL" ? "" : selectedMachine} 的相關歷史異動紀錄</p>`;
+          return;
+        }
 
         let html = '<div class="card-list">';
-        snapshot.forEach((doc) => {
-          const data = doc.data();
-          const timeStr = data.timestamp ? new Date(data.timestamp.toDate()).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : "剛才";
+        records.forEach((data) => {
+          const fullTimeStr = formatFullDate(data.timestamp);
           html += `
             <div class="mobile-card">
               <div class="card-header">
                 <span class="card-title">${data.machineId}</span>
-                ${statusBadges[data.status] || data.status}
+                <div style="display:flex; align-items:center; gap:0.5rem;">
+                  ${statusBadges[data.status] || data.status}
+                  ${currentUser ? `<button class="btn-mini-danger" onclick="deleteHistoryRecord('${data.docId}', event)">🗑️ 刪除誤填</button>` : ''}
+                </div>
               </div>
-              <div class="card-body-row"><span>料號/製程:</span> <span>${data.partNumber || '-'} / ${data.process || '-'}</span></div>
-              <div class="card-body-row"><span>原因/人員:</span> <span>${data.faultReason || '-'} (${data.updatedBy || '-'})</span></div>
-              <div class="card-body-row"><span style="color:#64748b; font-size:0.75rem;">${timeStr}</span></div>
+              <div class="card-body-row"><span>料號 / 製程:</span> <strong>${data.partNumber || '-'} / ${data.process || '-'}</strong></div>
+              <div class="card-body-row"><span>原因 / 人員:</span> <span>${data.faultReason || '-'} (${data.updatedBy || '-'})</span></div>
+              <div class="card-body-row"><span style="color:#64748b; font-size:0.75rem;">🕒 ${fullTimeStr}</span></div>
             </div>
           `;
         });
@@ -824,6 +925,25 @@
         container.innerHTML = html;
       });
     }
+
+    // 刪除單筆登記錯誤的歷史紀錄 (提供給維護員補救)
+    window.deleteHistoryRecord = async function(docId, e) {
+      if (e) e.stopPropagation();
+      if (!currentUser) {
+        alert("請先登入維護員帳號才可執行紀錄修正！");
+        return;
+      }
+
+      if (confirm("確定要刪除這筆登記錯誤的歷史紀錄嗎？")) {
+        try {
+          await deleteDoc(doc(db, "history", docId));
+          alert("已成功刪除該筆錯誤紀錄！");
+        } catch (err) {
+          console.error(err);
+          alert("刪除失敗，請檢查權限或網路連線。");
+        }
+      }
+    };
 
     // 8. 渲染設備清單
     window.renderList = function() {
@@ -851,7 +971,10 @@
             </div>
             <div class="card-body-row"><span>生產料號:</span> <strong>${live.partNumber || '-'}</strong></div>
             <div class="card-body-row"><span>當前製程:</span> <span>${live.process || '-'}</span></div>
-            <div class="card-body-row"><span>備註/人員:</span> <span>${live.faultReason || '-'} ${live.updatedBy ? `(${live.updatedBy})` : ''}</span></div>
+            <div class="card-body-row">
+              <span>備註/人員:</span> 
+              <span>${live.faultReason || '-'} ${live.updatedBy ? `(${live.updatedBy})` : ''}</span>
+            </div>
           </div>
         `;
       });
@@ -906,7 +1029,6 @@
     };
 
     function initFormEvents() {
-      // 登入表單送出事件
       document.getElementById("loginForm").addEventListener("submit", (e) => {
         e.preventDefault();
         const userVal = document.getElementById("loginUsername").value.trim();
@@ -924,7 +1046,6 @@
         }
       });
 
-      // 設備狀態更新事件
       document.getElementById("updateForm").addEventListener("submit", async (e) => {
         e.preventDefault();
         
