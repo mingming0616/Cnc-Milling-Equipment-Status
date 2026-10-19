@@ -1,0 +1,52 @@
+rules_version = '2';
+
+// 旭申 銑床設備即時看板 — Firestore 安全規則
+// 部署：firebase deploy --only firestore:rules
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function maintainerPath() { return /databases/$(database)/documents/maintainers/$(request.auth.uid); }
+    // 只有在 maintainers 集合中有文件的帳號才是維護員（文件只能由管理者在後台建立）
+    function isMaintainer() { return signedIn() && exists(maintainerPath()); }
+    function myName() { return get(maintainerPath()).data.name; }
+
+    function d() { return request.resource.data; }
+    function validStatus() { return d().status in ['running', 'setup', 'fault', 'waiting', 'borrowed', 'idle']; }
+    function okStr(f, max) { return !(f in d()) || (d()[f] is string && d()[f].size() <= max); }
+    // 更新人員姓名必須與登入帳號一致，無法冒名
+    function validFields() {
+      return validStatus()
+        && okStr('partNumber', 60) && okStr('process', 60)
+        && okStr('faultCategory', 30) && okStr('faultReason', 200)
+        && d().updatedBy == myName()
+        && d().updatedByUid == request.auth.uid;
+    }
+
+    // 設備即時狀態：所有人可看，維護員可改，不可刪
+    match /machines/{machineId} {
+      allow read: if true;
+      allow create, update: if isMaintainer()
+        && machineId.matches('^M[0-9]+$')
+        && validFields()
+        && d().updatedAt == request.time;
+      allow delete: if false;
+    }
+
+    // 異動履歷：只能新增，任何人都不能修改或刪除（稽核用）
+    match /history/{entryId} {
+      allow read: if true;
+      allow create: if isMaintainer()
+        && d().machineId is string && d().machineId.matches('^M[0-9]+$')
+        && validFields()
+        && d().timestamp == request.time;
+      allow update, delete: if false;
+    }
+
+    // 維護員名單：本人可讀自己的資料；新增/移除只能由管理者在後台或 Admin 腳本操作
+    match /maintainers/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow write: if false;
+    }
+  }
+}
