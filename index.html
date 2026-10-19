@@ -206,7 +206,7 @@
     .area-label.dim { fill: #5d6d8c; font-weight: 500; letter-spacing: 1px; }
     .machine-node .ring, .machine-node .body { vector-effect: non-scaling-stroke; }
     .map-wrap.is3d { perspective: 2600px; perspective-origin: 50% 20%; }
-    .map-wrap.is3d #mainSvg { transform: scale(.94) rotateX(30deg); transform-origin: 50% 8%; }
+    .map-wrap.is3d #mainSvg { transform: scale(.92) rotateX(28deg); transform-origin: 50% 60%; }   /* 角度與縮放經量測：整層都留在框內，左下角不會被推出畫面 */
 
     .map-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
     .seg-sm button { padding: 5px 12px; }
@@ -795,7 +795,8 @@
     const LIFT_FLAT = 5, LIFT_3D = 12;   // 機台「高度」：平面模式淡淡的立體感，立體模式較明顯
     const PLAN_UNIT = 2.6;               // DXF 平面圖（公分）相對於區塊式平面圖的比例，用來放大陰影、高度等
     const PLAN_INSET = 6;
-    const PLAN_TEXT = 2.9;               // DXF 平面圖機台文字倍率（統一大小，太窄的機台才自動縮小）                // 機台色塊比 DXF 外框內縮，避免相鄰機台黏在一起
+    const PLAN_TEXT = 2.9;
+    const PLAN_GAP = 16;                 // 相鄰機台之間至少保留的縫（公分）               // DXF 平面圖機台文字倍率（統一大小，太窄的機台才自動縮小）                // 機台色塊比 DXF 外框內縮，避免相鄰機台黏在一起
     const nodeEls = new Map();
     const tv = { on: false, timer: null, fs: false, pinned: null, prevZoom: null };
     const ZOOMS = [1, 1.5, 2, 3, 4, 6];   // 相對於「適合寬度」的倍率
@@ -985,6 +986,54 @@
       return out;
     }
 
+    const charW = ch => /[\u0000-ÿ]/.test(ch) ? 0.58 : 1;
+    const textW = (str, fs) => [...str].reduce((a, ch) => a + charW(ch), 0) * fs;
+
+    // 文字太長時：先縮小，空間夠的話折成兩行，最後才加「…」
+    function layoutLine(str, fs, lh, maxW, wrap) {
+      if (textW(str, fs) <= maxW) return { parts: [str], fs, lh };
+      const f2 = fs * 0.85;
+      if (textW(str, f2) <= maxW) return { parts: [str], fs: f2, lh: lh * 0.85 };
+      if (wrap) {
+        const f3 = fs * 0.8, chars = [...str];
+        let cut = 0, w = 0;
+        while (cut < chars.length && (w + charW(chars[cut])) * f3 <= maxW) { w += charW(chars[cut]); cut++; }
+        const head = chars.slice(0, cut);
+        const soft = Math.max(...["/", "-", " ", "·", "、", ","].map(c => head.lastIndexOf(c)));   // 優先在分隔符號後斷行
+        if (soft >= cut * 0.5) cut = soft + 1;
+        const a = chars.slice(0, cut).join(""), b = chars.slice(cut).join("").trim();
+        return { parts: b ? [a, fitText(b, f3, maxW)] : [a], fs: f3, lh: lh * 0.82 };
+      }
+      return { parts: [fitText(str, f2, maxW)], fs: f2, lh: lh * 0.85 };
+    }
+
+    // DXF 圖面上相鄰機台的外框常會重疊或貼齊：往內收，讓每台之間至少留 PLAN_GAP 的縫
+    function planRects(plan) {
+      if (plan._rects) return plan._rects;
+      const G = PLAN_GAP, I = PLAN_INSET;
+      const r = plan.machines.map(m => ({ id: m.id, x1: m.x + I, y1: m.y + I, x2: m.x + m.w - I, y2: m.y + m.h - I }));
+      for (let pass = 0; pass < 3; pass++) {
+        for (let i = 0; i < r.length; i++) {
+          for (let j = i + 1; j < r.length; j++) {
+            const a = r[i], b = r[j];
+            const ox = Math.min(a.x2, b.x2) - Math.max(a.x1, b.x1) + G;
+            const oy = Math.min(a.y2, b.y2) - Math.max(a.y1, b.y1) + G;
+            if (ox <= 0 || oy <= 0) continue;
+            if (ox <= oy) {
+              const [L, R] = a.x1 <= b.x1 ? [a, b] : [b, a];
+              const mid = (L.x2 + R.x1) / 2;
+              L.x2 = Math.min(L.x2, mid - G / 2); R.x1 = Math.max(R.x1, mid + G / 2);
+            } else {
+              const [T, B] = a.y1 <= b.y1 ? [a, b] : [b, a];
+              const mid = (T.y2 + B.y1) / 2;
+              T.y2 = Math.min(T.y2, mid - G / 2); B.y1 = Math.max(B.y1, mid + G / 2);
+            }
+          }
+        }
+      }
+      return (plan._rects = r);
+    }
+
     const MAP_DEFS = `<defs>
       <pattern id="grid" width="24" height="24" patternUnits="userSpaceOnUse"><circle cx="1.5" cy="1.5" r="1.2" fill="#1c2639"/></pattern>
       <linearGradient id="gTop" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".24"/><stop offset=".45" stop-color="#fff" stop-opacity=".05"/><stop offset="1" stop-color="#000" stop-opacity=".1"/></linearGradient>
@@ -992,16 +1041,19 @@
 
     // u：陰影、圓角等的比例；k：文字大小倍率
     function machineNode(id, x, y, w, h, lift, u, k) {
-      const top = y - lift;
+      const inside = u > 1;                      // DXF 平面圖：側面畫在外框內，不壓到隔壁機台
+      const top = inside ? y : y - lift;
+      const bh = inside ? h - lift : h;
+      const ro = inside ? 6 : 4 * u;             // 故障紅框往外擴的距離
       const g = svgEl("g", { class: "machine-node", "data-id": id, tabindex: 0, role: "button" });
       g.appendChild(svgEl("title"));
-      g.appendChild(svgEl("rect", { class: "shadow", x: x + 5 * u, y: top + 8 * u, width: w, height: h + lift - 4 * u, rx: 8 * u }));
-      g.appendChild(svgEl("rect", { class: "ring", x: x - 4 * u, y: top - 4 * u, width: w + 8 * u, height: h + lift + 8 * u, rx: 10 * u }));
-      g.appendChild(svgEl("rect", { class: "side", x, y: y + h - lift - 8 * u, width: w, height: lift + 8 * u, rx: 7 * u }));
-      g.appendChild(svgEl("rect", { class: "body", x, y: top, width: w, height: h, rx: 7 * u, fill: STATUS.idle.color }));
-      g.appendChild(svgEl("rect", { class: "gloss", x, y: top, width: w, height: h, rx: 7 * u, fill: "url(#gTop)" }));
+      g.appendChild(svgEl("rect", { class: "shadow", x: x + 5 * u, y: top + 8 * u, width: w, height: bh + lift - 4 * u, rx: 8 * u }));
+      g.appendChild(svgEl("rect", { class: "ring", x: x - ro, y: top - ro, width: w + 2 * ro, height: bh + lift + 2 * ro, rx: 10 * u }));
+      g.appendChild(svgEl("rect", { class: "side", x, y: top + bh - 8 * u, width: w, height: lift + 8 * u, rx: 7 * u }));
+      g.appendChild(svgEl("rect", { class: "body", x, y: top, width: w, height: bh, rx: 7 * u, fill: STATUS.idle.color }));
+      g.appendChild(svgEl("rect", { class: "gloss", x, y: top, width: w, height: bh, rx: 7 * u, fill: "url(#gTop)" }));
       ["t-id", "t-pn", "t-sub", "t-note"].forEach(c => g.appendChild(svgEl("text", { class: c, x: x + w / 2, "text-anchor": "middle" })));
-      g._geo = { cy: top + h / 2, maxW: w - 8 * k, k };
+      g._geo = { cx: x + w / 2, cy: top + bh / 2, maxW: w - 6 * k, maxH: bh - 6 * k, k, wrap: inside };
       nodeEls.set(id, g);
       return g;
     }
@@ -1058,9 +1110,9 @@
       });
 
       const g = svgEl("g");
-      plan.machines.forEach(m => {
-        const w = m.w - 2 * PLAN_INSET, h = m.h - 2 * PLAN_INSET;
-        g.appendChild(machineNode(m.id, m.x + PLAN_INSET, m.y + PLAN_INSET, w, h, lift, PLAN_UNIT, Math.min(PLAN_TEXT, (w - 8) / 40, (h - 10) / 60)));
+      planRects(plan).forEach(r => {
+        const w = r.x2 - r.x1, h = r.y2 - r.y1 - lift;
+        g.appendChild(machineNode(r.id, r.x1, r.y1, w, r.y2 - r.y1, lift, PLAN_UNIT, Math.min(PLAN_TEXT, (w - 8) / 40, (h - 10) / 60)));
       });
       svg.appendChild(g);
     }
@@ -1109,20 +1161,29 @@
       g.style.setProperty("--ink", st.ink);
 
       const content = { "t-id": id, "t-pn": pn, "t-sub": sub, "t-note": n };
-      const shown = Object.keys(LINE_SPEC).filter(k => content[k]);
-      const sc = g._geo.k;
-      const total = shown.reduce((a, k) => a + LINE_SPEC[k][1] * sc, 0);
-      let y = g._geo.cy - total / 2;
+      const geo = g._geo, sc = geo.k;
+      const build = wrap => Object.keys(LINE_SPEC).filter(k => content[k]).map(k => {
+        const fs = LINE_SPEC[k][0] * sc, lh = LINE_SPEC[k][1] * sc;
+        return k === "t-id" ? { k, parts: [content[k]], fs, lh } : { k, ...layoutLine(content[k], fs, lh, geo.maxW, wrap) };
+      });
+      const height = ls => ls.reduce((a, l) => a + l.parts.length * l.lh, 0);
+      let lines = build(geo.wrap);
+      if (geo.wrap && height(lines) > geo.maxH) lines = build(false);   // 高度不夠折行就改回單行
+      let y = geo.cy - height(lines) / 2;
       Object.keys(LINE_SPEC).forEach(k => {
         const t = g.querySelector("." + k);
-        if (!content[k]) { t.setAttribute("display", "none"); return; }
-        const fs = LINE_SPEC[k][0] * sc, lh = LINE_SPEC[k][1] * sc;
+        const l = lines.find(x => x.k === k);
+        if (!l) { t.setAttribute("display", "none"); return; }
         t.removeAttribute("display");
-        t.style.fontSize = fs + "px";
+        t.style.fontSize = l.fs + "px";
         if (k === "t-note") t.style.strokeWidth = 3 * sc + "px";
-        t.setAttribute("y", (y + lh / 2 + fs * 0.36).toFixed(1));
-        t.textContent = k === "t-id" ? content[k] : fitText(content[k], fs, g._geo.maxW);
-        y += lh;
+        t.textContent = "";
+        l.parts.forEach(part => {
+          const ts = svgEl("tspan", { x: geo.cx, y: (y + l.lh / 2 + l.fs * 0.36).toFixed(1) });
+          ts.textContent = part;
+          t.appendChild(ts);
+          y += l.lh;
+        });
       });
 
       g.classList.toggle("is-fault", s === "fault");
